@@ -11,6 +11,16 @@
  * 11/04/2024 NEW: new function VN_ExecuteSCAN_CameraCOP_XYZRGB.............. P.H
  * 11/04/2024 NEW: new function VN_Cirrus3DHandler_Get....................... P.H
  * 11/04/2024 CHANGED VN_ExecuteSCAN_CameraCOP_XYZRGB added param MiddleCam.. F.R
+ * 16/05/2024 NEW: VN_ExecuteSCAN_readHeader
+ *                 VN_ExecuteSCAN_CameraCOP_XYZI8
+ *                 VN_ExecuteSCAN_CameraCOP_XYZI8_sampling
+ *                 VN_ExecuteSCAN_Matrix_XYZRGB_readHeader
+ *            CHANGED: Multiple code improvement changes (removal of mallocs,
+ *  better use of timeouts when receiving...)
+ *            REMOVE: VN_ExecuteSCAN_CameraCOP_XYZRGB....................... P.H
+ * 17/05/2024 NEW function VN_ExecuteSCAN_CameraCOP_MiddleCam2_XYZI......... F.R
+ * 24/05/2024 NEW: VN_ExecuteSCAN_CameraCOP_XYZI8_s
+ *                 VN_ExecuteSCAN_CameraCOP_XYZI8_sampling_s................. P.H
  *-------------------------------------------------------------------------------
  */
 
@@ -36,6 +46,11 @@ VN_tERR_Code VN_ExecuteCommandSTS(const char *pIPAddress,
 
     //Open a VN_SOCKET
     err=CirrusCom_connect(pIPAddress,&sock);
+    if (err!=VN_eERR_NoError)
+        return err;
+
+    err=CirrusCom_setTimeout(sock,
+                             VN_cSocketTimeout);
     if (err!=VN_eERR_NoError)
         return err;
 
@@ -143,6 +158,11 @@ VN_tERR_Code VN_ExecuteCommandINFO(const char *pIpAddress,
 
     //Open a VN_SOCKET
     err=CirrusCom_connect(pIpAddress,&sock);
+    if (err!=VN_eERR_NoError)
+        return err;
+
+    err=CirrusCom_setTimeout(sock,
+                             VN_cSocketTimeout);
     if (err!=VN_eERR_NoError)
         return err;
 
@@ -257,6 +277,11 @@ VN_tERR_Code VN_ExecuteCommandRECI(const char *pIpAddress,
     if (err!=VN_eERR_NoError)
         return err;
 
+    err=CirrusCom_setTimeout(sock,
+                             VN_cSocketTimeout);
+    if (err!=VN_eERR_NoError)
+        return err;
+
     //send the RECI command to the Cirrus
     sprintf(reciCommand, "RECI %d%c%c", configId, 13, 10);
     err=CirrusCom_SendCommand(sock, reciCommand);
@@ -361,11 +386,19 @@ VN_tERR_Code VN_ExecuteSCAN_XYZ(const char *pIpAddress,
     VN_SOCKET sock;
     VN_tERR_Code err=VN_eERR_NoError;
     char ScanCommand[15];
+    int nbBytesRead;
+    int header[3];
+    int status, cloudBytesSize, cloudPoints;
 
     printf("Starting SCAN command with XYZ format at address %s\n",pIpAddress);
 
     //Open a VN_SOCKET
     err=CirrusCom_connect(pIpAddress,&sock);
+    if (err!=VN_eERR_NoError)
+        return err;
+
+    err=CirrusCom_setTimeout(sock,
+                             VN_cSocketTimeout);
     if (err!=VN_eERR_NoError)
         return err;
 
@@ -379,142 +412,95 @@ VN_tERR_Code VN_ExecuteSCAN_XYZ(const char *pIpAddress,
         return err;
     }
 
-    //get and interpret the response from the Cirrus
-    {
-        int nbBytesRead;
-        char  command[5];
+   //get and interpret the response from the Cirrus
+   err=VN_ExecuteSCAN_readHeader(sock);
+   if (err!=VN_eERR_NoError)
+   {
+       printf("Scan failed with error %d\n",err);
+       return err;
+   }
 
-        //The expected response from the Cirrus is the command code followed by a binary status then the cloud of points
-        nbBytesRead=recv(sock, command, 4, 0);
-        if(nbBytesRead == -1)
+    //read the header of the response
+    nbBytesRead=recv(sock, (char*)header, sizeof(header), 0);
+    if(nbBytesRead == -1)
+    {//a return value of -1 indicate a VN_SOCKET error
+        printf("VN_SOCKET error when trying to read scan header\n");
+        CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
+        return VN_eERR_SocketRecvError;
+    }
+
+    //in case of incomplete read of the header (possible since status is sent separately from the rest) try again
+    if (nbBytesRead < (int)sizeof(header))
+        nbBytesRead += recv(sock, ((char*)header) + nbBytesRead , sizeof(header)-nbBytesRead, 0);
+
+    if (nbBytesRead!=sizeof(header))
+    {//incomplete com
+        printf("Incomplete scan header\n");
+        printf("Header=%d; %d; %d\n", header[0],header[1],header[2]);
+        fflush(stdout);
+        CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
+        return VN_eERR_SocketIncompleteCom;
+    }
+    status=header[0];
+    cloudBytesSize=header[1];
+    cloudPoints=header[2];
+
+    //check that the status indicates scan sucess
+    if (status!=0)
+    {
+        printf("Scan failed with error status %d\n",header[0]);
+        CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
+        return VN_eERR_SocketRecvError;
+    }
+
+    //check that there is no incoherency in the cloud of points size
+    if (cloudBytesSize != (cloudPoints*3*4))
+    {
+        printf("ERROR : Scan result header is incoherent : for %d points, we expected a buffer size of %d bytes, not %d\n",
+               cloudPoints,cloudPoints*3*4,cloudBytesSize);
+        CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
+        return VN_eERR_BadHeader;
+    }
+
+    //check that the buffer passed as a parameter is big enough for this cloud of points
+    if (cloudPoints > MaxCloudSize)
+    {
+        printf("ERROR : cloud of points buffer is insufficient to accept the incoming points (buffer size %d points, cloud size %d points)\n",
+               MaxCloudSize,cloudPoints);
+        CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
+        return VN_eERR_InsufficientMemory;
+    }
+
+    //read the cloud of points
+    //Note : because of the size of the data to read, we might need several calls to recv to properly receive all the data
+    int bytesRead=0;
+    while (bytesRead < cloudBytesSize)
+    {
+        int rVal=recv(sock, pCloud_XYZ, cloudBytesSize-bytesRead, 0);
+        if (rVal==-1)
         {//a return value of -1 indicate a VN_SOCKET error
-            printf("VN_SOCKET error when waiting for scan response from cirrus\n");
-            //end the communication properly even if the commands fails
-            CirrusCom_End_connection(sock);
+            printf("Error in SCAN_XYZ command : VN_SOCKET error when receiving command result\n");
+            CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
             return VN_eERR_SocketRecvError;
         }
-        else if (nbBytesRead != 4)
-        {//we are supposed to read exactly 4 bytes here
-            printf("Incomplete command response\n");
-            CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-            return VN_eERR_SocketIncompleteCom;
-        }
 
-        if(command[0]!='S' || command[1]!='C' || command[2]!='A' || command[3]!='N')
+        if (rVal != 0)
         {
-            if(command[0]=='E' && command[1]=='R' && command[2]=='R')
-            {
-                printf("Recv: ERR -> Unknown command");
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_UnknownCommand;
-            }
-            else
-            {
-                command[4]='\0';
-                printf("Recv: %s -> communication error", command);
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_Failure;
-            }
+            bytesRead += rVal;
+            pCloud_XYZ += rVal;
         }
         else
         {
-            int header[3];
-            int status, cloudBytesSize, cloudPoints;
-
-            //read the header of the response
-            nbBytesRead=recv(sock, (char*)header, sizeof(header), 0);
-            if(nbBytesRead == -1)
-            {//a return value of -1 indicate a VN_SOCKET error
-                printf("VN_SOCKET error when trying to read scan header\n");
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_SocketRecvError;
-            }
-
-            //in case of incomplete read of the header (possible since status is sent separately from the rest) try again
-            if (nbBytesRead < (int)sizeof(header))
-                nbBytesRead += recv(sock, ((char*)header) + nbBytesRead , sizeof(header)-nbBytesRead, 0);
-
-            if (nbBytesRead!=sizeof(header))
-            {//incomplete com
-                printf("Incomplete scan header\n");
-                printf("Header=%d; %d; %d\n", header[0],header[1],header[2]);
-                fflush(stdout);
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_SocketIncompleteCom;
-            }
-            status=header[0];
-            cloudBytesSize=header[1];
-            cloudPoints=header[2];
-
-            //check that the status indicates scan sucess
-            if (status!=0)
-            {
-                printf("Scan failed with error status %d\n",header[0]);
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_SocketRecvError;
-            }
-
-            //check that there is no incoherency in the cloud of points size
-            if (cloudBytesSize != (cloudPoints*3*4))
-            {
-                printf("ERROR : Scan result header is incoherent : for %d points, we expected a buffer size of %d bytes, not %d\n",
-                       cloudPoints,cloudPoints*3*4,cloudBytesSize);
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_BadHeader;
-            }
-
-            //check that the buffer passed as a parameter is big enough for this cloud of points
-            if (cloudPoints > MaxCloudSize)
-            {
-                printf("ERROR : cloud of points buffer is insufficient to accept the incoming points (buffer size %d points, cloud size %d points)\n",
-                       MaxCloudSize,cloudPoints);
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_InsufficientMemory;
-            }
-
-//read the cloud of points
-//Note : because of the size of the data to read, we might need several calls to recv to properly receive all the data
-
-//define a timeout on the VN_SOCKET, to make sure we can't get stuck in an infinite loop
-#ifdef WIN32
-            int timeout=30000;
-            setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout,sizeof(timeout));
-#else
-            struct timeval tv;
-            tv.tv_sec=30;  /* 30 Secs Timeout */
-            tv.tv_usec=1;  // Not init'ing this can cause strange errors
-
-            setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv,sizeof(struct timeval));
-#endif
-            int bytesRead=0;
-            while (bytesRead < cloudBytesSize)
-            {
-                int rVal=recv(sock, pCloud_XYZ, cloudBytesSize-bytesRead, 0);
-                if (rVal==-1)
-                {//a return value of -1 indicate a VN_SOCKET error
-                    printf("Error in SCAN_XYZ command : VN_SOCKET error when receiving command result\n");
-                    CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                    return VN_eERR_SocketRecvError;
-                }
-
-                if (rVal != 0)
-                {
-                    bytesRead += rVal;
-                    pCloud_XYZ += rVal;
-                }
-                else
-                {
-                    //with the large timeout defined, not receiving any bytes here means
-                    // a com failure...
-                    printf("Error in SCA_XYZ command : incomplete com\n");
-                    CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                    return VN_eERR_SocketIncompleteCom;
-                }
-            }
-            //if reached here : cloud of points received properly ; update cloud size
-            *pCloudSize=cloudPoints;
+            //with the large timeout defined, not receiving any bytes here means
+            // a com failure...
+            printf("Error in SCA_XYZ command : incomplete com\n");
+            CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
+            return VN_eERR_SocketIncompleteCom;
         }
     }
+    //if reached here : cloud of points received properly ; update cloud size
+    *pCloudSize=cloudPoints;
+
 
     //if reached here : command successful, close VN_SOCKET properly
     err=CirrusCom_End_connection(sock);
@@ -540,11 +526,19 @@ VN_tERR_Code VN_ExecuteSCAN_XYZI16(const char *pIpAddress, const int MaxCloudSiz
     VN_SOCKET sock;
     VN_tERR_Code err=VN_eERR_NoError;
     char ScanCommand[15];
+    int nbBytesRead;
+    int header[3];
+    int status, cloudBytesSize, cloudPoints;
 
     printf("Starting SCAN command with XYZi format at address %s\n",pIpAddress);
 
     //Open a VN_SOCKET
     err=CirrusCom_connect(pIpAddress,&sock);
+    if (err!=VN_eERR_NoError)
+        return err;
+
+    err=CirrusCom_setTimeout(sock,
+                             VN_cSocketTimeout);
     if (err!=VN_eERR_NoError)
         return err;
 
@@ -560,174 +554,117 @@ VN_tERR_Code VN_ExecuteSCAN_XYZI16(const char *pIpAddress, const int MaxCloudSiz
     }
 
     //get and interpret the response from the Cirrus
+    err=VN_ExecuteSCAN_readHeader(sock);
+    if (err!=VN_eERR_NoError)
     {
-        int nbBytesRead;
-        char  command[5];
+        printf("Scan failed with error %d\n",err);
+        return err;
+    }
 
-        //The expected response from the Cirrus is the command code followed by a binary status then the cloud of points
-        nbBytesRead=recv(sock, command, 4, 0);
+    {
+
+        //read the header of the response
+        nbBytesRead=recv(sock, (char*)header, sizeof(header), 0);
         if(nbBytesRead == -1)
         {//a return value of -1 indicate a VN_SOCKET error
-            printf("VN_SOCKET error when trying to read scan response\n");
-            //end the communication properly even if the commands fails
-            CirrusCom_End_connection(sock);
+            printf("VN_SOCKET error when trying to read header\n");
+            CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
             return VN_eERR_SocketRecvError;
         }
-        else if (nbBytesRead != 4)
-        {//we are supposed to read exactly 4 bytes here
-            printf("Incomplete recv when trying to read scan response\n");
+        //in case of incomplete read of the header (possible since status is sent separately from the rest) try again
+        if (nbBytesRead < (int)sizeof(header))
+            nbBytesRead += recv(sock, ((char*)header) + nbBytesRead , sizeof(header)-nbBytesRead, 0);
+
+        if (nbBytesRead!=sizeof(header))
+        {//incomplete com
+            printf("Incomplete header error\n");
             CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
             return VN_eERR_SocketIncompleteCom;
         }
+        status=header[0];
+        cloudBytesSize=header[1];
+        cloudPoints=header[2];
 
-        if(command[0]!='S' || command[1]!='C' || command[2]!='A' || command[3]!='N')
+        //check that the status indicates scan sucess
+        if (status!=0)
         {
-            if(command[0]=='E' && command[1]=='R' && command[2]=='R')
-            {
-                printf("Recv: ERR -> Unknown command");
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_UnknownCommand;
-            }
-            else
-            {
-                command[4]='\0';
-                printf("Recv: %s -> communication error", command);
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_Failure;
-            }
+            printf("Scan failed with error status %d\n",header[0]);
+            CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
+            return VN_eERR_SocketRecvError;
         }
-        else
+
+        //check that there is no incoherency in the cloud of points size
+        const int cPointSize=3*4+2;//each point is 3 4-bytes VN_REAL32 and one 2-byte uint16
+        if (cloudBytesSize != (cloudPoints*cPointSize))
         {
-            int header[3];
-            int status, cloudBytesSize, cloudPoints;
+            printf("ERROR : Scan result header is incoherent : for %d points, we expected a buffer size of %d bytes, not %d\n",
+                   cloudPoints,cloudPoints*cPointSize,cloudBytesSize);
+            CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
+            return VN_eERR_BadHeader;
+        }
 
-            //read the header of the response
-            nbBytesRead=recv(sock, (char*)header, sizeof(header), 0);
-            if(nbBytesRead == -1)
-            {//a return value of -1 indicate a VN_SOCKET error
-                printf("VN_SOCKET error when trying to read header\n");
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_SocketRecvError;
-            }
-            //in case of incomplete read of the header (possible since status is sent separately from the rest) try again
-            if (nbBytesRead < (int)sizeof(header))
-                nbBytesRead += recv(sock, ((char*)header) + nbBytesRead , sizeof(header)-nbBytesRead, 0);
+        //check that the buffer passed as a parameter is big enough for this cloud of points
+        if (cloudPoints > MaxCloudSize)
+        {
+            printf("ERROR : cloud of points buffer is insufficient to accept the incoming points (buffer size %d points, cloud size %d points)\n",
+                   MaxCloudSize,cloudPoints);
+            CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
+            return VN_eERR_InsufficientMemory;
+        }
 
-            if (nbBytesRead!=sizeof(header))
-            {//incomplete com
-                printf("Incomplete header error\n");
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_SocketIncompleteCom;
-            }
-            status=header[0];
-            cloudBytesSize=header[1];
-            cloudPoints=header[2];
-
-            //check that the status indicates scan sucess
-            if (status!=0)
-            {
-                printf("Scan failed with error status %d\n",header[0]);
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_SocketRecvError;
-            }
-
-            //check that there is no incoherency in the cloud of points size
-            const int cPointSize=3*4+2;//each point is 3 4-bytes VN_REAL32 and one 2-byte uint16
-            if (cloudBytesSize != (cloudPoints*cPointSize))
-            {
-                printf("ERROR : Scan result header is incoherent : for %d points, we expected a buffer size of %d bytes, not %d\n",
-                       cloudPoints,cloudPoints*cPointSize,cloudBytesSize);
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_BadHeader;
-            }
-
-            //check that the buffer passed as a parameter is big enough for this cloud of points
-            if (cloudPoints > MaxCloudSize)
-            {
-                printf("ERROR : cloud of points buffer is insufficient to accept the incoming points (buffer size %d points, cloud size %d points)\n",
-                       MaxCloudSize,cloudPoints);
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_InsufficientMemory;
-            }
-
-            //read the cloud of points
-            //Note : because of the size of the data to read, we might need several calls to recv to properly receive all the data
-            /*Warning : the Point_XYZI struct used here tends to be automatically padded by the compiler when used in arrays
-             * because unaligned memory access tends to be slower.
-             *However, that means that we can't just transfer directly the binary stream from the Cirrus to the buffer, we need
-             * to go through an intermediary buffer then store its contents properly into the Point_XYZI array.
-             */
-            char *pBuffer=(char*)malloc(cloudBytesSize);
-            if (pBuffer == NULL)
-            {
-                printf("Error : failed to allocate enough memory for the image intermediary buffer\n");
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_InsufficientMemory;
-            }
-
-//define a timeout on the VN_SOCKET, to make sure we can't get stuck in an infinite loop
-#ifdef WIN32
-            int timeout=30000;
-            setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout,sizeof(timeout));
+#ifdef WITH_PADDING
+        //read the cloud of points
+        //Note : because of the size of the data to read, we might need several calls to recv to properly receive all the data
+        /*Warning : the Point_XYZI struct used here tends to be automatically padded by the compiler when used in arrays
+         * because unaligned memory access tends to be slower.
+         *However, that means that we can't just transfer directly the binary stream from the Cirrus to the buffer, we need
+         * to go through an intermediary buffer then store its contents properly into the Point_XYZI array.
+         */
+        char *pBuffer=(char*)malloc(cloudBytesSize);
+        if (pBuffer == NULL)
+        {
+            printf("Error : failed to allocate enough memory for the image intermediary buffer\n");
+            CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
+            return VN_eERR_InsufficientMemory;
+        }
 #else
-            struct timeval tv;
-            tv.tv_sec=30;  /* 30 Secs Timeout */
-            tv.tv_usec=1;  // Not init'ing this can cause strange errors
-
-            setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv,sizeof(struct timeval));
+        char *pBuffer=(char*)pCloud_XYZI16;
 #endif
-            int bytesRead=0;
-            char *pBufferPtr=pBuffer;
-            while (bytesRead < cloudBytesSize)
-            {
-                int rVal=recv(sock, pBufferPtr, cloudBytesSize-bytesRead, 0);
-                if (rVal==-1)
-                {//a return value of -1 indicate a VN_SOCKET error
-                    printf("VN_SOCKET error when trying to get XYZI scan data\n");
-                    CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                    free(pBuffer);//free the buffer correctly before exiting...
-                    return VN_eERR_SocketRecvError;
-                }
 
-                if (rVal != 0)
-                {
-                    bytesRead += rVal;
-                    pBufferPtr += rVal;
-                }
-                else
-                {
-                    //with the large timeout defined, not receiving any bytes here means
-                    // a com failure...
-                    printf("Timeout error when trying to get XYZI scan data\n");
-                    CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                    free(pBuffer);//free the buffer correctly before exiting...
-                    return VN_eERR_SocketIncompleteCom;
-                }
-            }
-
-            //extracts points from the intermediary buffer...
-            pBufferPtr=pBuffer;
-            for(int pt=0 ; pt<cloudPoints ; pt++)
-            {
-                VN_REAL32 x=*((VN_REAL32*)pBufferPtr);
-                pBufferPtr += sizeof(VN_REAL32);
-                VN_REAL32 y=*((VN_REAL32*)pBufferPtr);
-                pBufferPtr += sizeof(VN_REAL32);
-                VN_REAL32 z=*((VN_REAL32*)pBufferPtr);
-                pBufferPtr += sizeof(VN_REAL32);
-                VN_UINT16 I=*((VN_UINT16*)pBufferPtr);
-                pBufferPtr += sizeof(VN_UINT16);
-                pCloud_XYZI16[pt].x=x;
-                pCloud_XYZI16[pt].y=y;
-                pCloud_XYZI16[pt].z=z;
-                pCloud_XYZI16[pt].i=I;
-            }
-
-            free(pBuffer);
-
-            //if reached here : cloud of points received properly ; update cloud size
-            *pCloudSize=cloudPoints;
+        int bytesRead=0;
+        char *pBufferPtr=pBuffer;
+        err=CirrusCom_ReceiveBufferofSizeN(sock, pBufferPtr, cloudBytesSize-bytesRead);
+        if(err!=VN_eERR_NoError)
+        {
+            //end the communication properly even if the commands fails
+            CirrusCom_End_connection(sock);
+            return err;
         }
+
+#ifdef WITH_PADDING
+        //extracts points from the intermediary buffer...
+        pBufferPtr=pBuffer;
+        for(int pt=0 ; pt<cloudPoints ; pt++)
+        {
+            VN_REAL32 x=*((VN_REAL32*)pBufferPtr);
+            pBufferPtr += sizeof(VN_REAL32);
+            VN_REAL32 y=*((VN_REAL32*)pBufferPtr);
+            pBufferPtr += sizeof(VN_REAL32);
+            VN_REAL32 z=*((VN_REAL32*)pBufferPtr);
+            pBufferPtr += sizeof(VN_REAL32);
+            VN_UINT16 I=*((VN_UINT16*)pBufferPtr);
+            pBufferPtr += sizeof(VN_UINT16);
+            pCloud_XYZI16[pt].x=x;
+            pCloud_XYZI16[pt].y=y;
+            pCloud_XYZI16[pt].z=z;
+            pCloud_XYZI16[pt].i=I;
+        }
+
+        free(pBuffer);
+#endif
+
+        //if reached here : cloud of points received properly ; update cloud size
+        *pCloudSize=cloudPoints;
     }
 
     //if reached here : command successful, close VN_SOCKET properly
@@ -766,6 +703,11 @@ VN_tERR_Code VN_ExecuteSCAN_Matrix_XYZI8(const char *pIpAddress, const int MaxCl
     if (err!=VN_eERR_NoError)
         return err;
 
+    err=CirrusCom_setTimeout(sock,
+                             VN_cSocketTimeout);
+    if (err!=VN_eERR_NoError)
+        return err;
+
     //send the SCAN command to the Cirrus
     sprintf(ScanCommand, "SCAN %d,%d%c%c",1,3,13,10);//second parameter 3 to request matrix_XYZi cloud format
     err=CirrusCom_SendCommand(sock, ScanCommand);
@@ -779,43 +721,16 @@ VN_tERR_Code VN_ExecuteSCAN_Matrix_XYZI8(const char *pIpAddress, const int MaxCl
     //get and interpret the response from the Cirrus
     {
         int nbBytesRead;
-        char  command[5];
+        int header[5];
 
-        //The expected response from the Cirrus is the command code followed by a binary status then the cloud of points
-        nbBytesRead=recv(sock, command, 4, 0);
-        if(nbBytesRead == -1)
-        {//a return value of -1 indicate a VN_SOCKET error
-            printf("VN_SOCKET error when trying to get scan result fom SCAN_Matrix_XYZi command\n");
-            //end the communication properly even if the commands fails
-            CirrusCom_End_connection(sock);
-            return VN_eERR_SocketRecvError;
-        }
-        else if (nbBytesRead != 4)
-        {//we are supposed to read exactly 4 bytes here
-            printf("Recv error when trying to get scan result\n");
-            CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-            return VN_eERR_SocketIncompleteCom;
+        err=VN_ExecuteSCAN_readHeader(sock);
+        if (err!=VN_eERR_NoError)
+        {
+            printf("Scan failed with error %d\n",err);
+            return err;
         }
 
-        if(command[0]!='S' || command[1]!='C' || command[2]!='A' || command[3]!='N')
         {
-            if(command[0]=='E' && command[1]=='R' && command[2]=='R')
-            {
-                printf("Recv: ERR -> Unknown command");
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_UnknownCommand;
-            }
-            else
-            {
-                command[4]='\0';
-                printf("Recv: %s -> communication error", command);
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_Failure;
-            }
-        }
-        else
-        {
-            int header[5];
             int status, cloudBytesSize, cloudPoints, rowCount, columnCount;
 
             //read the header of the response
@@ -876,6 +791,7 @@ VN_tERR_Code VN_ExecuteSCAN_Matrix_XYZI8(const char *pIpAddress, const int MaxCl
                 return VN_eERR_InsufficientMemory;
             }
 
+#ifdef WITH_PADDING
             //read the cloud of points
             //Note : because of the size of the data to read, we might need several calls to recv to properly receive all the data
             /*Warning : the Point_XYZI struct used here tends to be automatically padded by the compiler when used in arrays
@@ -890,47 +806,20 @@ VN_tERR_Code VN_ExecuteSCAN_Matrix_XYZI8(const char *pIpAddress, const int MaxCl
                 CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
                 return VN_eERR_InsufficientMemory;
             }
-
-//define a timeout on the VN_SOCKET, to make sure we can't get stuck in an infinite loop
-#ifdef WIN32
-            int timeout=30000;
-            setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout,sizeof(timeout));
 #else
-            struct timeval tv;
-            tv.tv_sec=30;  /* 30 Secs Timeout */
-            tv.tv_usec=1;  // Not init'ing this can cause strange errors
-
-            setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv,sizeof(struct timeval));
+            char *pBuffer=(char*)pCloud_XYZI8;
 #endif
             int bytesRead=2*4;//doesn't start at 0 here, because we already read rowCount & columnCount...
             char *pBufferPtr=pBuffer;
-            while (bytesRead < cloudBytesSize)
+            err=CirrusCom_ReceiveBufferofSizeN(sock, pBufferPtr, cloudBytesSize-bytesRead);
+            if(err!=VN_eERR_NoError)
             {
-                int rVal=recv(sock, pBufferPtr, cloudBytesSize-bytesRead, 0);
-                if (rVal==-1)
-                {//a return value of -1 indicate a VN_SOCKET error
-                    printf("VN_SOCKET error when trying to get scan data\n");
-                    CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                    free(pBuffer);//free the buffer correctly before exiting...
-                    return VN_eERR_SocketRecvError;
-                }
-
-                if (rVal != 0)
-                {
-                    bytesRead += rVal;
-                    pBufferPtr += rVal;
-                }
-                else
-                {
-                    //with the large timeout defined, not receiving any bytes here means
-                    // a com failure...
-                    printf("Timeout error when trying to get scan data\n");
-                    CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                    free(pBuffer);//free the buffer correctly before exiting...
-                    return VN_eERR_SocketIncompleteCom;
-                }
+                //end the communication properly even if the commands fails
+                CirrusCom_End_connection(sock);
+                return err;
             }
 
+#ifdef WITH_PADDING
             //extracts points from the intermediary buffer...
             pBufferPtr=pBuffer;
             for(int pt=0 ; pt<rowCount*columnCount ; pt++)
@@ -950,6 +839,7 @@ VN_tERR_Code VN_ExecuteSCAN_Matrix_XYZI8(const char *pIpAddress, const int MaxCl
             }
 
             free(pBuffer);
+#endif
 
             //if reached here : cloud of points received properly ; update cloud size
             *pCloudSize=cloudPoints;
@@ -984,16 +874,27 @@ VN_tERR_Code VN_ExecuteSCAN_Matrix_XYZI8(const char *pIpAddress, const int MaxCl
  * \retval VN_eERR_NoError if success
  * \retval Error code otherwise
  */
-VN_tERR_Code VN_ExecuteSCAN_Matrix_XYZRGB(const char *pIpAddress, const int MaxCloudSize, VN_Point_XYZRGB *pCloud_XYZRGB, int *pCloudSize, int *pMatrixColumns, int *pMatrixRows)
+VN_tERR_Code VN_ExecuteSCAN_Matrix_XYZRGB(const char *pIpAddress,
+                                          const int MaxCloudSize,
+                                          VN_Point_XYZRGB *pCloud_XYZRGB,
+                                          int *pCloudSize,
+                                          int *pMatrixColumns,
+                                          int *pMatrixRows)
 {
     VN_SOCKET sock;
     VN_tERR_Code err=VN_eERR_NoError;
     char ScanCommand[15];
+    int status, cloudBytesSize, cloudPoints, rowCount, columnCount;
 
     printf("Starting SCAN command with matrix XYZRGB format at address %s\n",pIpAddress);
 
     //Open a VN_SOCKET
     err=CirrusCom_connect(pIpAddress,&sock);
+    if (err!=VN_eERR_NoError)
+        return err;
+
+    err=CirrusCom_setTimeout(sock,
+                             VN_cSocketTimeout);
     if (err!=VN_eERR_NoError)
         return err;
 
@@ -1007,157 +908,46 @@ VN_tERR_Code VN_ExecuteSCAN_Matrix_XYZRGB(const char *pIpAddress, const int MaxC
         return err;
     }
 
-    //get and interpret the response from the Cirrus
+
+    err=VN_ExecuteSCAN_Matrix_XYZRGB_readHeader(sock,
+                                                &status,
+                                                &cloudBytesSize,
+                                                &cloudPoints,
+                                                &rowCount,
+                                                &columnCount);
+    if(err!=VN_eERR_NoError)
     {
-        int nbBytesRead;
-        char  command[5];
-
-        //The expected response from the Cirrus is the command code followed by a binary status then the cloud of points
-        nbBytesRead=recv(sock, command, 4, 0);
-        if(nbBytesRead == -1)
-        {//a return value of -1 indicate a VN_SOCKET error
-            printf("VN_SOCKET error when trying to get scan result fom SCAN_Matrix_XYZRGB command\n");
-            //end the communication properly even if the commands fails
-            CirrusCom_End_connection(sock);
-            return VN_eERR_SocketRecvError;
-        }
-        else if (nbBytesRead != 4)
-        {//we are supposed to read exactly 4 bytes here
-            printf("Recv error when trying to get scan result\n");
-            CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-            return VN_eERR_SocketIncompleteCom;
-        }
-
-        if(command[0]!='S' || command[1]!='C' || command[2]!='A' || command[3]!='N')
-        {
-            if(command[0]=='E' && command[1]=='R' && command[2]=='R')
-            {
-                printf("Recv: ERR -> Unknown command");
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_UnknownCommand;
-            }
-            else
-            {
-                command[4]='\0';
-                printf("Recv: %s -> communication error", command);
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_Failure;
-            }
-        }
-        else
-        {
-            int header[5];
-            int status, cloudBytesSize, cloudPoints, rowCount, columnCount;
-
-            //read the header of the response
-            nbBytesRead=recv(sock, (char*)header, sizeof(header), 0);
-            if(nbBytesRead == -1)
-            {//a return value of -1 indicate a VN_SOCKET error
-                printf("VN_SOCKET error when trying to get scan_MATRIX_XYZRGB header\n");
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_SocketRecvError;
-            }
-            //in case of incomplete read of the header (possible here twice because rowcount & columnCount are sent in a separate packet from the rest of the header...)
-            if (nbBytesRead < (int)sizeof(header))
-                nbBytesRead += recv(sock, ((char*)header) + nbBytesRead , sizeof(header)-nbBytesRead, 0);
-            if (nbBytesRead < (int)sizeof(header))
-                nbBytesRead += recv(sock, ((char*)header) + nbBytesRead , sizeof(header)-nbBytesRead, 0);
-
-            if (nbBytesRead!=sizeof(header))
-            {//incomplete com
-                printf("Recv error when trying to get scan_MATRIX_XYZRGB header\n");
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_SocketIncompleteCom;
-            }
-            status=header[0];
-            cloudBytesSize=header[1];
-            cloudPoints=header[2];
-            rowCount=header[3];
-            columnCount=header[4];
-
-            //check that the status indicates scan sucess
-            if (status!=0)
-            {
-                printf("Scan failed with error status %d\n",header[0]);
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_SocketRecvError;
-            }
-
-            //check that there is no incoherency in the cloud of points size
-            const int cPointSize=3*4+4;//each point is 3 4-bytes VN_REAL32 and one 4-byte VN_REAL32
-            int expectedCloudSize=2*4 + rowCount*columnCount*cPointSize;//in this format the cloud is transfered as a matrix,
-            // and for compatibility with the other scan formats the rowCount & columnCount are considered to be part of
-            // the cloud of points data when computing the buffer size
-
-            //with each case of the matrix containing either a point or 0
-            if (cloudBytesSize != expectedCloudSize)
-            {
-                printf("ERROR : Scan result header is incoherent : for %d points, we expected a buffer size of %d bytes, not %d\n",
-                       cloudPoints,expectedCloudSize,cloudBytesSize);
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_BadHeader;
-            }
-
-            //check that the buffer passed as a parameter is big enough for this cloud of points
-            if (rowCount*columnCount > MaxCloudSize)
-            {
-                printf("ERROR : cloud of points buffer is insufficient to accept the incoming points (buffer size %d points, cloud matrix size %d points)\n",
-                       MaxCloudSize,rowCount*columnCount);
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_InsufficientMemory;
-            }
-
-            printf("Receiving a matrix cloud of size %d rows & %d columns\n",rowCount,columnCount);
-
-//read the cloud of points
-//Note : because of the size of the data to read, we might need several calls to recv to properly receive all the data
-//Note2 : this point data structure is aligned on four bytes, so we can receive it directly
-
-//define a timeout on the VN_SOCKET, to make sure we can't get stuck in an infinite loop
-#ifdef WIN32
-            int timeout=30000;
-            setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout,sizeof(timeout));
-#else
-            struct timeval tv;
-            tv.tv_sec=30;  /* 30 Secs Timeout */
-            tv.tv_usec=1;  // Not init'ing this can cause strange errors
-
-            setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv,sizeof(struct timeval));
-#endif
-            int bytesRead=2*4;//doesn't start at 0 here, because we already read rowCount & columnCount...
-            char *pCloud=(char*)pCloud_XYZRGB;//need the cast because no guarantee that each call to recv will result in an integer number of Point_XYZRGB...
-            while (bytesRead < cloudBytesSize)
-            {
-                int rVal=recv(sock, pCloud, cloudBytesSize-bytesRead, 0);
-                if (rVal==-1)
-                {//a return value of -1 indicate a VN_SOCKET error
-                    printf("VN_SOCKET error when trying to get scan data (received %d of %d bytes expected)\n",bytesRead,cloudBytesSize);
-                    CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                    return VN_eERR_SocketRecvError;
-                }
-
-                if (rVal != 0)
-                {
-                    bytesRead += rVal;
-                    pCloud += rVal;
-                }
-                else
-                {
-                    //with the large timeout defined, not receiving any bytes here means
-                    // a com failure...
-                    printf("Timeout error when trying to get scan data\n");
-                    CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                    return VN_eERR_SocketIncompleteCom;
-                }
-            }
-
-            //if reached here : cloud of points received properly ; update cloud size
-            *pCloudSize=cloudPoints;
-            //also update matrix size
-            *pMatrixColumns=columnCount;
-            *pMatrixRows=rowCount;
-        }
+        //end the communication properly even if the commands fails
+        CirrusCom_End_connection(sock);
+        return err;
     }
+
+
+    //check that the buffer passed as a parameter is big enough for this cloud of points
+    if (rowCount*columnCount > MaxCloudSize)
+    {
+        printf("ERROR : cloud of points buffer is insufficient to accept the incoming points (buffer size %d points, cloud matrix size %d points)\n",
+               MaxCloudSize,rowCount*columnCount);
+        CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
+        return VN_eERR_InsufficientMemory;
+    }
+
+    int bytesRead=2*4;//doesn't start at 0 here, because we already read rowCount & columnCount...
+    char *pCloud=(char*)pCloud_XYZRGB;//need the cast because no guarantee that each call to recv will result in an integer number of Point_XYZRGB...
+
+    err=CirrusCom_ReceiveBufferofSizeN(sock, pCloud, cloudBytesSize-bytesRead);
+    if(err!=VN_eERR_NoError)
+    {
+        //end the communication properly even if the commands fails
+        CirrusCom_End_connection(sock);
+        return err;
+    }
+
+    //if reached here : cloud of points received properly ; update cloud size
+    *pCloudSize=cloudPoints;
+    //also update matrix size
+    *pMatrixColumns=columnCount;
+    *pMatrixRows=rowCount;
 
     //if reached here : command successful, close VN_SOCKET properly
     err=CirrusCom_End_connection(sock);
@@ -1170,211 +960,217 @@ VN_tERR_Code VN_ExecuteSCAN_Matrix_XYZRGB(const char *pIpAddress, const int MaxC
 }
 
 
-/** @ingroup CloudOfPoint
- * \brief request the Cirrus3D to scan and get the scan result as matrix of XYZRGB points
- *  (more accurately pcl::PointXYZRGB from the PCL library) ;
- *  The matrix corresponds to a rectified image from the left camera or a virtual middle camera.
- *  In this format the empty elements of the matrix have NaN coordinates, and the
- *  rgb float is actually a rgb int casted as float (where all r,g,b fields are
- *  identical since the Cirrus only generate black-and-white pixel data)
- * \param[in] IPAddress         : IP address of the Cirrus3D
- * \param[in] MaxCloudSize      : Max number of points that can be stored in the cloud of points buffer
- * \param[out] pCloud_XYZRGB    : pointer to a buffer able to store the resulting cloud of points
- * \param[out] pCloudSize       : Will contain the number of non-zero points in the matrix
- * \param[out] pMatrixColumns   : Will contain the number of columns in the matrix
- * \param[out] pMatrixRows      : Will contain the number of rows in the matrix
- * \retval VN_eERR_NoError if success
- * \retval Error code otherwise
- */
-VN_tERR_Code VN_ExecuteSCAN_CameraCOP_XYZRGB(const char *pIpAddress,
-                                             const int MaxCloudSize,
-                                             VN_Point_XYZRGB *pCloud_XYZRGB,
-                                             int *pCloudSize, int *pMatrixColumns, int *pMatrixRows,
-                                             VN_BOOL fromMiddleCamPOV)
+
+VN_tERR_Code VN_ExecuteSCAN_readHeader(VN_SOCKET sock)
 {
-    VN_SOCKET sock;
-    VN_tERR_Code err=VN_eERR_NoError;
-    char ScanCommand[15];
-
-    //Open a VN_SOCKET
-    err=CirrusCom_connect(pIpAddress,&sock);
-    if (err!=VN_eERR_NoError)
-        return err;
-
-    //send the SCAN command to the Cirrus
-    if (fromMiddleCamPOV==0)
-        sprintf(ScanCommand, "SCAN %d,%d,%d%c%c",1,5,1,13,10);//second parameter 5 to request Camera_COP cloud format from the perspective of the left camera
-    else
-        sprintf(ScanCommand, "SCAN %d,%d,%d%c%c",1,6,1,13,10);//second parameter 6 to request Camera_COP cloud format from the perspective of a virtual middle camera
-
-    err=CirrusCom_SendCommand(sock, ScanCommand);
-    if(err!=VN_eERR_NoError)
-    {
-        //end the communication properly even if the commands fails
-        CirrusCom_End_connection(sock);
-        return err;
-    }
 
     //get and interpret the response from the Cirrus
+    int nbBytesRead;
+    char  command[5];
+
+    //The expected response from the Cirrus is the command code followed by a binary status then the cloud of points
+    nbBytesRead=recv(sock, command, 4, 0);
+    if(nbBytesRead == -1)
+    {//a return value of -1 indicate a VN_SOCKET error
+        printf("VN_SOCKET error when trying to get scan result fom SCAN_Matrix_XYZRGB command\n");
+        //end the communication properly even if the commands fails
+        return VN_eERR_SocketRecvError;
+    }
+    else if (nbBytesRead != 4)
+    {//we are supposed to read exactly 4 bytes here
+        printf("Recv error when trying to get scan result\n");
+        return VN_eERR_SocketIncompleteCom;
+    }
+
+    if(command[1]!='C' || command[2]!='A' || command[3]!='N')
     {
-        int nbBytesRead;
-        char  command[5];
-
-        //The expected response from the Cirrus is the command code followed by a binary status then the cloud of points
-        nbBytesRead=recv(sock, command, 4, 0);
-        if(nbBytesRead == -1)
-        {//a return value of -1 indicate a VN_SOCKET error
-            printf("VN_SOCKET error when trying to get scan result fom SCAN_Matrix_XYZRGB command\n");
-            //end the communication properly even if the commands fails
-            CirrusCom_End_connection(sock);
-            return VN_eERR_SocketRecvError;
-        }
-        else if (nbBytesRead != 4)
-        {//we are supposed to read exactly 4 bytes here
-            printf("Recv error when trying to get scan result\n");
-            CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-            return VN_eERR_SocketIncompleteCom;
-        }
-
-        if(command[0]!='S' || command[1]!='C' || command[2]!='A' || command[3]!='N')
+        if(command[0]=='E' && command[1]=='R' && command[2]=='R')
         {
-            if(command[0]=='E' && command[1]=='R' && command[2]=='R')
-            {
-                printf("Recv: ERR -> Unknown command");
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_UnknownCommand;
-            }
-            else
-            {
-                command[4]='\0';
-                printf("Recv: %s -> communication error", command);
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_Failure;
-            }
+            printf("Recv: ERR -> Unknown command");
+            return VN_eERR_UnknownCommand;
         }
         else
         {
-            int header[5];
-            int status, cloudBytesSize, cloudPoints, rowCount, columnCount;
-
-            //read the header of the response
-            nbBytesRead=recv(sock, (char*)header, sizeof(header), 0);
-            if(nbBytesRead == -1)
-            {//a return value of -1 indicate a VN_SOCKET error
-                printf("VN_SOCKET error when trying to get scan_MATRIX_XYZRGB header\n");
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_SocketRecvError;
-            }
-            //in case of incomplete read of the header (possible here twice because rowcount & columnCount are sent in a separate packet from the rest of the header...)
-            if (nbBytesRead < (int)sizeof(header))
-                nbBytesRead += recv(sock, ((char*)header) + nbBytesRead , sizeof(header)-nbBytesRead, 0);
-            if (nbBytesRead < (int)sizeof(header))
-                nbBytesRead += recv(sock, ((char*)header) + nbBytesRead , sizeof(header)-nbBytesRead, 0);
-
-            if (nbBytesRead!=sizeof(header))
-            {//incomplete com
-                printf("Recv error when trying to get scan_MATRIX_XYZRGB header\n");
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_SocketIncompleteCom;
-            }
-            status=header[0];
-            cloudBytesSize=header[1];
-            cloudPoints=header[2];
-            rowCount=header[3];
-            columnCount=header[4];
-
-            //check that the status indicates scan sucess
-            if (status!=0)
-            {
-                printf("Scan failed with error status %d\n",header[0]);
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_SocketRecvError;
-            }
-
-            //check that there is no incoherency in the cloud of points size
-            const int cPointSize=3*4+4;//each point is 3 4-bytes VN_REAL32 and one 4-byte VN_REAL32
-            int expectedCloudSize=2*4 + rowCount*columnCount*cPointSize;//in this format the cloud is transfered as a matrix,
-            // and for compatibility with the other scan formats the rowCount & columnCount are considered to be part of
-            // the cloud of points data when computing the buffer size
-
-            //with each case of the matrix containing either a point or 0
-            if (cloudBytesSize != expectedCloudSize)
-            {
-                printf("ERROR : Scan result header is incoherent : for %d points, we expected a buffer size of %d bytes, not %d\n",
-                       cloudPoints,expectedCloudSize,cloudBytesSize);
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_BadHeader;
-            }
-
-            //check that the buffer passed as a parameter is big enough for this cloud of points
-            if (rowCount*columnCount > MaxCloudSize)
-            {
-                printf("ERROR : cloud of points buffer is insufficient to accept the incoming points (buffer size %d points, cloud matrix size %d points)\n",
-                       MaxCloudSize,rowCount*columnCount);
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_InsufficientMemory;
-            }
-
-            printf("Receiving a matrix cloud of size %d rows & %d columns\n",rowCount,columnCount);
-
-//read the cloud of points
-//Note : because of the size of the data to read, we might need several calls to recv to properly receive all the data
-//Note2 : this point data structure is aligned on four bytes, so we can receive it directly
-
-//define a timeout on the VN_SOCKET, to make sure we can't get stuck in an infinite loop
-#ifdef WIN32
-            int timeout=30000;
-            setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout,sizeof(timeout));
-#else
-            struct timeval tv;
-            tv.tv_sec=30;  /* 30 Secs Timeout */
-            tv.tv_usec=1;  // Not init'ing this can cause strange errors
-
-            setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv,sizeof(struct timeval));
-#endif
-            int bytesRead=2*4;//doesn't start at 0 here, because we already read rowCount & columnCount...
-            char *pCloud=(char*)pCloud_XYZRGB;//need the cast because no guarantee that each call to recv will result in an integer number of Point_XYZRGB...
-            while (bytesRead < cloudBytesSize)
-            {
-                int rVal=recv(sock, pCloud, cloudBytesSize-bytesRead, 0);
-                if (rVal==-1)
-                {//a return value of -1 indicate a VN_SOCKET error
-                    printf("VN_SOCKET error when trying to get scan data (received %d of %d bytes expected)\n",bytesRead,cloudBytesSize);
-                    CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                    return VN_eERR_SocketRecvError;
-                }
-
-                if (rVal != 0)
-                {
-                    bytesRead += rVal;
-                    pCloud += rVal;
-                }
-                else
-                {
-                    //with the large timeout defined, not receiving any bytes here means
-                    // a com failure...
-                    printf("Timeout error when trying to get scan data\n");
-                    CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                    return VN_eERR_SocketIncompleteCom;
-                }
-            }
-
-            //if reached here : cloud of points received properly ; update cloud size
-            *pCloudSize=cloudPoints;
-            //also update matrix size
-            *pMatrixColumns=columnCount;
-            *pMatrixRows=rowCount;
+            command[4]='\0';
+            printf("Recv: %s -> communication error", command);
+            return VN_eERR_Failure;
         }
     }
 
-    //if reached here : command successful, close VN_SOCKET properly
-    err=CirrusCom_End_connection(sock);
-    if (err!=VN_eERR_NoError)
-        return err;
+    return VN_eERR_NoError;
 
-    printf("SCAN command successfull ; a matrix cloud of %d XYZRGB points was received.\n",*pCloudSize);
+}
+
+
+VN_tERR_Code VN_ExecuteSCAN_Matrix_XYZRGB_readHeader(VN_SOCKET sock,
+                                                     VN_INT32 *pStatus,
+                                                     VN_INT32 *pCloudBytesSize,
+                                                     VN_INT32 *pCloudPoints,
+                                                     VN_INT32 *pRowCount,
+                                                     VN_INT32 *pColumnCount)
+{
+    //get and interpret the response from the Cirrus
+    int nbBytesRead;
+    VN_tERR_Code err=VN_eERR_NoError;
+    int header[5];
+
+    err=VN_ExecuteSCAN_readHeader(sock);
+    if (err!=VN_eERR_NoError)
+    {
+        printf("Scan failed with error %d\n",err);
+        return err;
+    }
+
+    //read the header of the response
+    nbBytesRead=recv(sock, (char*)header, sizeof(header), 0);
+    if(nbBytesRead == -1)
+    {//a return value of -1 indicate a VN_SOCKET error
+        printf("VN_SOCKET error when trying to get scan_MATRIX_XYZRGB header\n");
+        return VN_eERR_SocketRecvError;
+    }
+    //in case of incomplete read of the header (possible here twice because rowcount & columnCount are sent in a separate packet from the rest of the header...)
+    if (nbBytesRead < (int)sizeof(header))
+        nbBytesRead += recv(sock, ((char*)header) + nbBytesRead , sizeof(header)-nbBytesRead, 0);
+    if (nbBytesRead < (int)sizeof(header))
+        nbBytesRead += recv(sock, ((char*)header) + nbBytesRead , sizeof(header)-nbBytesRead, 0);
+
+    if (nbBytesRead!=sizeof(header))
+    {//incomplete com
+        printf("Recv error when trying to get scan_MATRIX_XYZRGB header\n");
+        return VN_eERR_SocketIncompleteCom;
+    }
+    *pStatus=header[0];
+    *pCloudBytesSize=header[1];
+    *pCloudPoints=header[2];
+    *pRowCount=header[3];
+    *pColumnCount=header[4];
+
+    //check that the status indicates scan sucess
+    if (*pStatus!=0)
+    {
+        printf("Scan failed with error status %d\n",*pStatus);
+        return *pStatus;
+    }
+
+    //check that there is no incoherency in the cloud of points size
+    const int cPointSize=3*4+4;//each point is 3 4-bytes VN_REAL32 and one 4-byte VN_REAL32
+    int expectedCloudSize=2*4 + (*pRowCount)*(*pColumnCount)*cPointSize;//in this format the cloud is transfered as a matrix,
+    // and for compatibility with the other scan formats the rowCount & columnCount are considered to be part of
+    // the cloud of points data when computing the buffer size
+
+    //with each case of the matrix containing either a point or 0
+    if (*pCloudBytesSize != expectedCloudSize)
+    {
+        printf("ERROR : Scan result header is incoherent : for %d points, we expected a buffer size of %d bytes, not %d\n",
+               *pCloudPoints,expectedCloudSize,*pCloudBytesSize);
+        return VN_eERR_BadHeader;
+    }
+
+    printf("Receiving a matrix cloud of size %d rows & %d columns\n",*pRowCount,*pColumnCount);
 
     return VN_eERR_NoError;
+}
+
+VN_tERR_Code VN_ExecuteSCAN_CameraCOP_XYZI8_readHeader(VN_SOCKET sock,
+                                                       VN_INT32 *pStatus,
+                                                       VN_INT32 *pCloudBytesSize,
+                                                       VN_INT32 *pCloudPoints,
+                                                       VN_INT32 *pRowCount,
+                                                       VN_INT32 *pColumnCount)
+{
+    VN_tERR_Code err;
+    int header[5];
+    int nbBytesRead;
+
+    //get and interpret the response from the Cirrus
+    err=VN_ExecuteSCAN_readHeader(sock);
+    if (err!=VN_eERR_NoError)
+    {
+        printf("Scan failed with error %d\n",err);
+        return err;
+    }
+
+    //read the header of the response
+    nbBytesRead=recv(sock, (char*)header, sizeof(header), 0);
+    if(nbBytesRead == -1)
+    {//a return value of -1 indicate a VN_SOCKET error
+        printf("VN_SOCKET error when trying to get scan_MATRIX_XYZI8 header\n");
+        CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
+        return VN_eERR_SocketRecvError;
+    }
+    //in case of incomplete read of the header (possible here twice because rowcount & columnCount are sent in a separate packet from the rest of the header...)
+    if (nbBytesRead < (int)sizeof(header))
+        nbBytesRead += recv(sock, ((char*)header) + nbBytesRead , sizeof(header)-nbBytesRead, 0);
+    if (nbBytesRead < (int)sizeof(header))
+        nbBytesRead += recv(sock, ((char*)header) + nbBytesRead , sizeof(header)-nbBytesRead, 0);
+
+    if (nbBytesRead!=sizeof(header))
+    {//incomplete com
+        printf("Recv error when trying to get scan_MATRIX_XYZI8 header\n");
+        CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
+        return VN_eERR_SocketIncompleteCom;
+    }
+    *pStatus=header[0];
+    *pCloudBytesSize=header[1];
+    *pCloudPoints=header[2];
+    *pRowCount=header[3];
+    *pColumnCount=header[4];
+
+    //check that the status indicates scan sucess
+    if (*pStatus!=0)
+    {
+        printf("Scan failed with error status %d\n",*pStatus);
+        return VN_eERR_SocketRecvError;
+    }
+
+    //check that there is no incoherency in the cloud of points size
+    const int cPointSize=3*4+1;//each point is 3 4-bytes VN_REAL32 and one 1-byte VN_UCHAR
+    int expectedCloudSize=2*4 + (*pRowCount)*(*pColumnCount)*cPointSize;//in this format the cloud is transfered as a matrix,
+    // and for compatibility with the other scan formats the rowCount & columnCount are considered to be part of
+    // the cloud of points data when computing the buffer size
+
+    //with each case of the matrix containing either a point or 0
+    if (*pCloudBytesSize != expectedCloudSize)
+    {
+        printf("ERROR : Scan result header is incoherent : for %d points, we expected a buffer size of %d bytes, not %d\n",
+               *pCloudPoints,expectedCloudSize,*pCloudBytesSize);
+        return VN_eERR_BadHeader;
+    }
+
+    return VN_eERR_NoError;
+}
+
+/** @ingroup CloudOfPoint
+ * \brief request the Cirrus3D to scan and get the scan result as matrix of XYZI points
+ *  The matrix corresponds to a rectified image from the left camera or a virtual middle camera.
+ *  In this format the empty elements of the matrix have NaN coordinates.
+ *  Function with version compatibility check before connection to the Cirrus3D.
+ * \param[in] pCirrus3DHandler  : Cirrus3DHandler
+ * \param[in] MaxCloudSize      : Max number of points that can be stored in the cloud of points buffer
+ * \param[out] pCloud_XYZI8    : pointer to a buffer able to store the resulting cloud of points
+ * \param[out] pCloudSize       : Will contain the number of non-zero points in the matrix
+ * \param[out] pMatrixColumns   : Will contain the number of columns in the matrix
+ * \param[out] pMatrixRows      : Will contain the number of rows in the matrix
+ * \param[out] fromMiddleCamPOV : 1->the point of view of a virtual ideal middle camera, 0-> left camera
+ * \retval VN_eERR_NoError if success
+ * \retval Error code otherwise
+ */
+VN_tERR_Code VN_ExecuteSCAN_CameraCOP_XYZI8_s(const VN_Cirrus3DHandler *pCirrus3DHandler,
+                                              const int MaxCloudSize,
+                                              VN_Point_XYZI8 *pCloud_XYZI8,
+                                              int *pCloudSize, int *pMatrixColumns, int *pMatrixRows,
+                                              VN_BOOL fromMiddleCamPOV)
+{
+    if( pCirrus3DHandler->DeviceVersion>=2)
+    return VN_ExecuteSCAN_CameraCOP_XYZI8(pCirrus3DHandler->IPAddress,
+                                          MaxCloudSize,
+                                          pCloud_XYZI8,
+                                          pCloudSize,
+                                          pMatrixColumns,
+                                          pMatrixRows,
+                                          fromMiddleCamPOV);
+    else
+        return VN_eERR_IncompatibleDeviceVersion;
 }
 
 /** @ingroup CloudOfPoint
@@ -1400,9 +1196,15 @@ VN_tERR_Code VN_ExecuteSCAN_CameraCOP_XYZI8(const char *pIpAddress,
     VN_SOCKET sock;
     VN_tERR_Code err=VN_eERR_NoError;
     char ScanCommand[15];
+    int status, cloudBytesSize, cloudPoints, rowCount, columnCount;
 
     //Open a VN_SOCKET
     err=CirrusCom_connect(pIpAddress,&sock);
+    if (err!=VN_eERR_NoError)
+        return err;
+
+    err=CirrusCom_setTimeout(sock,
+                             VN_cSocketTimeout);
     if (err!=VN_eERR_NoError)
         return err;
 
@@ -1420,199 +1222,135 @@ VN_tERR_Code VN_ExecuteSCAN_CameraCOP_XYZI8(const char *pIpAddress,
         return err;
     }
 
-    //get and interpret the response from the Cirrus
+
+    err= VN_ExecuteSCAN_CameraCOP_XYZI8_readHeader(sock,
+                                                   &status,
+                                                   &cloudBytesSize,
+                                                   &cloudPoints,
+                                                   &rowCount,
+                                                   &columnCount);
+    if(err!=VN_eERR_NoError)
     {
-        int nbBytesRead;
-        char  command[5];
+        //end the communication properly even if the commands fails
+        CirrusCom_End_connection(sock);
+        return err;
+    }
 
-        //The expected response from the Cirrus is the command code followed by a binary status then the cloud of points
-        nbBytesRead=recv(sock, command, 4, 0);
-        if(nbBytesRead == -1)
-        {//a return value of -1 indicate a VN_SOCKET error
-            printf("VN_SOCKET error when trying to get scan result fom SCAN_Matrix_XYZRGB command\n");
-            //end the communication properly even if the commands fails
-            CirrusCom_End_connection(sock);
-            return VN_eERR_SocketRecvError;
-        }
-        else if (nbBytesRead != 4)
-        {//we are supposed to read exactly 4 bytes here
-            printf("Recv error when trying to get scan result\n");
-            CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-            return VN_eERR_SocketIncompleteCom;
-        }
+    //check that the buffer passed as a parameter is big enough for this cloud of points
+    if (rowCount*columnCount > MaxCloudSize)
+    {
+        printf("ERROR : cloud of points buffer is insufficient to accept the incoming points (buffer size %d points, cloud matrix size %d points)\n",
+               MaxCloudSize,rowCount*columnCount);
+        CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
+        return VN_eERR_InsufficientMemory;
+    }
 
-        if(command[0]!='S' || command[1]!='C' || command[2]!='A' || command[3]!='N')
-        {
-            if(command[0]=='E' && command[1]=='R' && command[2]=='R')
-            {
-                printf("Recv: ERR -> Unknown command");
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_UnknownCommand;
-            }
-            else
-            {
-                command[4]='\0';
-                printf("Recv: %s -> communication error", command);
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_Failure;
-            }
-        }
-        else
-        {
-            int header[5];
-            int status, cloudBytesSize, cloudPoints, rowCount, columnCount;
+    printf("Receiving a matrix cloud of size %d rows & %d columns\n",rowCount,columnCount);
 
-            //read the header of the response
-            nbBytesRead=recv(sock, (char*)header, sizeof(header), 0);
-            if(nbBytesRead == -1)
-            {//a return value of -1 indicate a VN_SOCKET error
-                printf("VN_SOCKET error when trying to get scan_MATRIX_XYZI8 header\n");
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_SocketRecvError;
-            }
-            //in case of incomplete read of the header (possible here twice because rowcount & columnCount are sent in a separate packet from the rest of the header...)
-            if (nbBytesRead < (int)sizeof(header))
-                nbBytesRead += recv(sock, ((char*)header) + nbBytesRead , sizeof(header)-nbBytesRead, 0);
-            if (nbBytesRead < (int)sizeof(header))
-                nbBytesRead += recv(sock, ((char*)header) + nbBytesRead , sizeof(header)-nbBytesRead, 0);
+#ifdef WITH_PADDING
+    //read the cloud of points
+    //Note : because of the size of the data to read, we might need several calls to recv to properly receive all the data
+    /*Warning : the Point_XYZI struct used here tends to be automatically padded by the compiler when used in arrays
+     * because unaligned memory access tends to be slower.
+     *However, that means that we can't just transfer directly the binary stream from the Cirrus to the buffer, we need
+     * to go through an intermediary buffer then store its contents properly into the Point_XYZI array.
+     */
+    char *pBuffer=(char*)malloc(cloudBytesSize);
+    if (pBuffer == NULL)
+    {
+        printf("Error : failed to allocate enough memory for the image intermediary buffer\n");
+        CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
+        return VN_eERR_InsufficientMemory;
+    }
+#else
+    char *pBuffer=(char*)pCloud_XYZI8;
+#endif
 
-            if (nbBytesRead!=sizeof(header))
-            {//incomplete com
-                printf("Recv error when trying to get scan_MATRIX_XYZI8 header\n");
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_SocketIncompleteCom;
-            }
-            status=header[0];
-            cloudBytesSize=header[1];
-            cloudPoints=header[2];
-            rowCount=header[3];
-            columnCount=header[4];
+    int bytesRead=2*4;
+    err=CirrusCom_ReceiveBufferofSizeN(sock, pBuffer, cloudBytesSize-bytesRead);
+    if(err!=VN_eERR_NoError)
+    {
+        //end the communication properly even if the commands fails
+        CirrusCom_End_connection(sock);
+        return err;
+    }
 
-            //check that the status indicates scan sucess
-            if (status!=0)
-            {
-                printf("Scan failed with error status %d\n",header[0]);
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_SocketRecvError;
-            }
+#ifdef WITH_PADDING
+    //extracts points from the intermediary buffer...
+    pBufferPtr=pBuffer;
+    for(int pt=0 ; pt<rowCount*columnCount ; pt++)
+    {
+        VN_REAL32 x=*((VN_REAL32*)pBufferPtr);
+        pBufferPtr += sizeof(VN_REAL32);
+        VN_REAL32 y=*((VN_REAL32*)pBufferPtr);
+        pBufferPtr += sizeof(VN_REAL32);
+        VN_REAL32 z=*((VN_REAL32*)pBufferPtr);
+        pBufferPtr += sizeof(VN_REAL32);
+        VN_UINT8 I=*((VN_UINT8*)pBufferPtr);
+        pBufferPtr += sizeof(VN_UINT8);
+        pCloud_XYZI8[pt].x=x;
+        pCloud_XYZI8[pt].y=y;
+        pCloud_XYZI8[pt].z=z;
+        pCloud_XYZI8[pt].i=I;
+    }
 
-            //check that there is no incoherency in the cloud of points size
-            const int cPointSize=3*4+1;//each point is 3 4-bytes VN_REAL32 and one 1-byte VN_UCHAR
-            int expectedCloudSize=2*4 + rowCount*columnCount*cPointSize;//in this format the cloud is transfered as a matrix,
-            // and for compatibility with the other scan formats the rowCount & columnCount are considered to be part of
-            // the cloud of points data when computing the buffer size
+    free(pBuffer);
+#endif
 
-            //with each case of the matrix containing either a point or 0
-            if (cloudBytesSize != expectedCloudSize)
-            {
-                printf("ERROR : Scan result header is incoherent : for %d points, we expected a buffer size of %d bytes, not %d\n",
-                       cloudPoints,expectedCloudSize,cloudBytesSize);
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_BadHeader;
-            }
+    //if reached here : cloud of points received properly ; update cloud size
+    *pCloudSize=cloudPoints;
+    //also update matrix size
+    *pMatrixColumns=columnCount;
+    *pMatrixRows=rowCount;
 
-            //check that the buffer passed as a parameter is big enough for this cloud of points
-            if (rowCount*columnCount > MaxCloudSize)
-            {
-                printf("ERROR : cloud of points buffer is insufficient to accept the incoming points (buffer size %d points, cloud matrix size %d points)\n",
-                       MaxCloudSize,rowCount*columnCount);
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_InsufficientMemory;
-            }
+    //if reached here : command successful, close VN_SOCKET properly
+    err=CirrusCom_End_connection(sock);
+    if (err!=VN_eERR_NoError)
+        return err;
 
-            printf("Receiving a matrix cloud of size %d rows & %d columns\n",rowCount,columnCount);
+    printf("SCAN command successfull ; a matrix cloud of %d points was received.\n",*pCloudSize);
 
-            //read the cloud of points
-            //Note : because of the size of the data to read, we might need several calls to recv to properly receive all the data
-            /*Warning : the Point_XYZI struct used here tends to be automatically padded by the compiler when used in arrays
-             * because unaligned memory access tends to be slower.
-             *However, that means that we can't just transfer directly the binary stream from the Cirrus to the buffer, we need
-             * to go through an intermediary buffer then store its contents properly into the Point_XYZI array.
-             */
-            char *pBuffer=(char*)malloc(cloudBytesSize);
-            if (pBuffer == NULL)
-            {
-                printf("Error : failed to allocate enough memory for the image intermediary buffer\n");
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_InsufficientMemory;
-            }
+    return VN_eERR_NoError;
+}
 
-        //define a timeout on the VN_SOCKET, to make sure we can't get stuck in an infinite loop
-        #ifdef WIN32
-                    int timeout=30000;
-                    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout,sizeof(timeout));
-        #else
-                    struct timeval tv;
-                    tv.tv_sec=30;  /* 30 Secs Timeout */
-                    tv.tv_usec=1;  // Not init'ing this can cause strange errors
+/** @ingroup CloudOfPoint
+ * \brief request the Cirrus3D to scan and get the scan result as matrix of XYZI points
+ *  The matrix corresponds to a rectified image from the left camera or a virtual middle camera.
+ *  In this format the empty elements of the matrix have NaN coordinates.
+ *  Available only for CirrusSensor version 3.0.0 and higher.
+ *  Function with version compatibility check before connection to the Cirrus3D.
+ * \param[in] pCirrus3DHandler  : Cirrus3DHandler
+ * \param[in] MaxCloudSize      : Max number of points that can be stored in the cloud of points buffer
+ * \param[out] pCloud_XYZI8     : pointer to a buffer able to store the resulting cloud of points
+ * \param[out] pCloudSize       : Will contain the number of non-zero points in the matrix
+ * \param[out] pMatrixColumns   : Will contain the number of columns in the matrix
+ * \param[out] pMatrixRows      : Will contain the number of rows in the matrix
+ * \param[out] samplingFactor   : This parameter corresponds to the sampling factor applied during the conversion from the raw unordered cloud of point to MatrixXYZI8. The default value is 1.2
+ * \retval VN_eERR_NoError if success
+ * \retval Error code otherwise
+ */
+VN_tERR_Code VN_ExecuteSCAN_CameraCOP_XYZI8_sampling_s(const VN_Cirrus3DHandler *pCirrus3DHandler,
+                                                       const int MaxCloudSize,
+                                                       VN_Point_XYZI8 *pCloud_XYZI8,
+                                                       int *pCloudSize,
+                                                       int *pMatrixColumns,
+                                                       int *pMatrixRows,
+                                                       VN_BOOL fromMiddleCamPOV,
+                                                       VN_REAL32 samplingFactor)
+{
 
-                    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv,sizeof(struct timeval));
-        #endif
-                    int bytesRead=2*4;//doesn't start at 0 here, because we already read rowCount & columnCount...
-                    char *pBufferPtr=pBuffer;
-                    while (bytesRead < cloudBytesSize)
-                    {
-                        int rVal=recv(sock, pBufferPtr, cloudBytesSize-bytesRead, 0);
-                        if (rVal==-1)
-                        {//a return value of -1 indicate a VN_SOCKET error
-                            printf("VN_SOCKET error when trying to get scan data\n");
-                            CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                            free(pBuffer);//free the buffer correctly before exiting...
-                            return VN_eERR_SocketRecvError;
-                        }
+    if( pCirrus3DHandler->DeviceVersion>=2)
+        return VN_ExecuteSCAN_CameraCOP_XYZI8_sampling(pCirrus3DHandler->IPAddress,
+                                                       MaxCloudSize,
+                                                       pCloud_XYZI8,
+                                                       pCloudSize,
+                                                       pMatrixColumns,
+                                                       pMatrixRows,
+                                                       fromMiddleCamPOV,
+                                                       samplingFactor);
+    else
+        return VN_eERR_IncompatibleDeviceVersion;
 
-                        if (rVal != 0)
-                        {
-                            bytesRead += rVal;
-                            pBufferPtr += rVal;
-                        }
-                        else
-                        {
-                            //with the large timeout defined, not receiving any bytes here means
-                            // a com failure...
-                            printf("Timeout error when trying to get scan data\n");
-                            CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                            free(pBuffer);//free the buffer correctly before exiting...
-                            return VN_eERR_SocketIncompleteCom;
-                        }
-                    }
-
-                    //extracts points from the intermediary buffer...
-                    pBufferPtr=pBuffer;
-                    for(int pt=0 ; pt<rowCount*columnCount ; pt++)
-                    {
-                        VN_REAL32 x=*((VN_REAL32*)pBufferPtr);
-                        pBufferPtr += sizeof(VN_REAL32);
-                        VN_REAL32 y=*((VN_REAL32*)pBufferPtr);
-                        pBufferPtr += sizeof(VN_REAL32);
-                        VN_REAL32 z=*((VN_REAL32*)pBufferPtr);
-                        pBufferPtr += sizeof(VN_REAL32);
-                        VN_UINT8 I=*((VN_UINT8*)pBufferPtr);
-                        pBufferPtr += sizeof(VN_UINT8);
-                        pCloud_XYZI8[pt].x=x;
-                        pCloud_XYZI8[pt].y=y;
-                        pCloud_XYZI8[pt].z=z;
-                        pCloud_XYZI8[pt].i=I;
-                    }
-
-                    free(pBuffer);
-
-                    //if reached here : cloud of points received properly ; update cloud size
-                    *pCloudSize=cloudPoints;
-                    //also update matrix size
-                    *pMatrixColumns=columnCount;
-                    *pMatrixRows=rowCount;
-                }
-            }
-
-            //if reached here : command successful, close VN_SOCKET properly
-            err=CirrusCom_End_connection(sock);
-            if (err!=VN_eERR_NoError)
-                return err;
-
-            printf("SCAN command successfull ; a matrix cloud of %d points was received.\n",*pCloudSize);
-
-            return VN_eERR_NoError;
 }
 
 /** @ingroup CloudOfPoint
@@ -1625,6 +1363,7 @@ VN_tERR_Code VN_ExecuteSCAN_CameraCOP_XYZI8(const char *pIpAddress,
  * \param[out] pCloudSize       : Will contain the number of non-zero points in the matrix
  * \param[out] pMatrixColumns   : Will contain the number of columns in the matrix
  * \param[out] pMatrixRows      : Will contain the number of rows in the matrix
+ * \param[out] samplingFactor   : This parameter corresponds to the sampling factor applied during the conversion from the raw unordered cloud of point to MatrixXYZI8. The default value is 1.2
  * \retval VN_eERR_NoError if success
  * \retval Error code otherwise
  */
@@ -1637,7 +1376,134 @@ VN_tERR_Code VN_ExecuteSCAN_CameraCOP_XYZI8_sampling(const char *pIpAddress,
 {
     VN_SOCKET sock;
     VN_tERR_Code err=VN_eERR_NoError;
-    char ScanCommand[15];
+    char ScanCommand[16];
+    int status, cloudBytesSize, cloudPoints, rowCount, columnCount;
+
+    //Open a VN_SOCKET
+    err=CirrusCom_connect(pIpAddress,&sock);
+    if (err!=VN_eERR_NoError)
+        return err;
+
+    err=CirrusCom_setTimeout(sock,
+                             VN_cSocketTimeout);
+    if (err!=VN_eERR_NoError)
+        return err;
+
+    //send the SCAN command to the Cirrus
+    if (fromMiddleCamPOV==0)
+        sprintf(ScanCommand, "SCAN %d,%d,%d.%d%c%c",1,5,(int)round(samplingFactor),(int)round((samplingFactor-1.0)*100),//note : using round to make sure that sampling factor will be expressed with a '.' instead of a ',' separator
+                13,10);//second parameter 5 to request Camera_COP cloud format from the perspective of the left camera
+    else
+        sprintf(ScanCommand, "SCAN %d,%d,%d.%d%c%c",1,6,(int)round(samplingFactor),(int)round((samplingFactor-1.0)*100),//note : using round to make sure that sampling factor will be expressed with a '.' instead of a ',' separator
+                13,10);//second parameter 6 to request Camera_COP cloud format from the perspective of a virtual middle camera
+
+    err=CirrusCom_SendCommand(sock, ScanCommand);
+    if(err!=VN_eERR_NoError)
+    {
+        //end the communication properly even if the commands fails
+        CirrusCom_End_connection(sock);
+        return err;
+    }
+
+    err= VN_ExecuteSCAN_CameraCOP_XYZI8_readHeader(sock,
+                                                   &status,
+                                                   &cloudBytesSize,
+                                                   &cloudPoints,
+                                                   &rowCount,
+                                                   &columnCount);
+    if(err!=VN_eERR_NoError)
+    {
+        //end the communication properly even if the commands fails
+        CirrusCom_End_connection(sock);
+        return err;
+    }
+
+    //check that the buffer passed as a parameter is big enough for this cloud of points
+    if (rowCount*columnCount > MaxCloudSize)
+    {
+        printf("ERROR : cloud of points buffer is insufficient to accept the incoming points (buffer size %d points, cloud matrix size %d points)\n",
+               MaxCloudSize,rowCount*columnCount);
+        CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
+        return VN_eERR_InsufficientMemory;
+    }
+
+    printf("Receiving a matrix cloud of size %d rows & %d columns\n",rowCount,columnCount);
+
+#ifdef WITH_PADDING
+    //read the cloud of points
+    //Note : because of the size of the data to read, we might need several calls to recv to properly receive all the data
+    /*Warning : the Point_XYZI struct used here tends to be automatically padded by the compiler when used in arrays
+     * because unaligned memory access tends to be slower.
+     *However, that means that we can't just transfer directly the binary stream from the Cirrus to the buffer, we need
+     * to go through an intermediary buffer then store its contents properly into the Point_XYZI array.
+     */
+    char *pBuffer=(char*)malloc(cloudBytesSize);
+    if (pBuffer == NULL)
+    {
+        printf("Error : failed to allocate enough memory for the image intermediary buffer\n");
+        CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
+        return VN_eERR_InsufficientMemory;
+    }
+#else
+    char *pBuffer=(char*)pCloud_XYZI8;
+#endif
+
+    int bytesRead=2*4;
+    err=CirrusCom_ReceiveBufferofSizeN(sock, pBuffer, cloudBytesSize-bytesRead);
+    if(err!=VN_eERR_NoError)
+    {
+        //end the communication properly even if the commands fails
+        CirrusCom_End_connection(sock);
+        return err;
+    }
+
+#ifdef WITH_PADDING
+    //extracts points from the intermediary buffer...
+    pBufferPtr=pBuffer;
+    for(int pt=0 ; pt<rowCount*columnCount ; pt++)
+    {
+        VN_REAL32 x=*((VN_REAL32*)pBufferPtr);
+        pBufferPtr += sizeof(VN_REAL32);
+        VN_REAL32 y=*((VN_REAL32*)pBufferPtr);
+        pBufferPtr += sizeof(VN_REAL32);
+        VN_REAL32 z=*((VN_REAL32*)pBufferPtr);
+        pBufferPtr += sizeof(VN_REAL32);
+        VN_UINT8 I=*((VN_UINT8*)pBufferPtr);
+        pBufferPtr += sizeof(VN_UINT8);
+        pCloud_XYZI8[pt].x=x;
+        pCloud_XYZI8[pt].y=y;
+        pCloud_XYZI8[pt].z=z;
+        pCloud_XYZI8[pt].i=I;
+    }
+
+    free(pBuffer);
+#endif
+
+    //if reached here : cloud of points received properly ; update cloud size
+    *pCloudSize=cloudPoints;
+    //also update matrix size
+    *pMatrixColumns=columnCount;
+    *pMatrixRows=rowCount;
+
+
+    //if reached here : command successful, close VN_SOCKET properly
+    err=CirrusCom_End_connection(sock);
+    if (err!=VN_eERR_NoError)
+        return err;
+
+    printf("SCAN command successfull ; a matrix cloud of %d points was received.\n",*pCloudSize);
+
+    return VN_eERR_NoError;
+}
+
+VN_tERR_Code VN_ExecuteSCAN_CameraCOP_MiddleCam2_XYZI(const char *pIpAddress,
+                                                     const int MaxCloudSize,
+                                                     VN_Point_XYZI8 *pCloud_XYZI8,
+                                                     int *pMatrixColumns, int *pMatrixRows)
+{
+    VN_SOCKET sock;
+    VN_tERR_Code err=VN_eERR_NoError;
+    char ScanCommand[20];
 
     //Open a VN_SOCKET
     err=CirrusCom_connect(pIpAddress,&sock);
@@ -1645,10 +1511,8 @@ VN_tERR_Code VN_ExecuteSCAN_CameraCOP_XYZI8_sampling(const char *pIpAddress,
         return err;
 
     //send the SCAN command to the Cirrus
-    if (fromMiddleCamPOV==0)
-        sprintf(ScanCommand, "SCAN %d,%d,%.2f%c%c",1,5,samplingFactor,13,10);//second parameter 5 to request Camera_COP cloud format from the perspective of the left camera
-    else
-        sprintf(ScanCommand, "SCAN %d,%d,%.2f%c%c",1,6,samplingFactor,13,10);//second parameter 6 to request Camera_COP cloud format from the perspective of a virtual middle camera
+    sprintf(ScanCommand, "SCAN %d,%d%c%c",1,7,
+            13,10);//second parameter 6 to request Camera_COP cloud format from the perspective of a virtual middle camera
 
     err=CirrusCom_SendCommand(sock, ScanCommand);
     if(err!=VN_eERR_NoError)
@@ -1663,7 +1527,7 @@ VN_tERR_Code VN_ExecuteSCAN_CameraCOP_XYZI8_sampling(const char *pIpAddress,
         int nbBytesRead;
         char  command[5];
 
-        //The expected response from the Cirrus is the command code followed by a binary status then the cloud of points
+        //The expected response from the Cirrus is the command code followed by the cloud of points
         nbBytesRead=recv(sock, command, 4, 0);
         if(nbBytesRead == -1)
         {//a return value of -1 indicate a VN_SOCKET error
@@ -1697,54 +1561,37 @@ VN_tERR_Code VN_ExecuteSCAN_CameraCOP_XYZI8_sampling(const char *pIpAddress,
         }
         else
         {
-            int header[5];
-            int status, cloudBytesSize, cloudPoints, rowCount, columnCount;
+            int header[3];
+            int cloudBytesSize, rowCount, columnCount;
 
             //read the header of the response
             nbBytesRead=recv(sock, (char*)header, sizeof(header), 0);
             if(nbBytesRead == -1)
             {//a return value of -1 indicate a VN_SOCKET error
-                printf("VN_SOCKET error when trying to get scan_MATRIX_XYZI8 header\n");
+                printf("VN_SOCKET error when trying to get scan_MATRIX_XYZRGB header\n");
                 CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
                 return VN_eERR_SocketRecvError;
             }
-            //in case of incomplete read of the header (possible here twice because rowcount & columnCount are sent in a separate packet from the rest of the header...)
-            if (nbBytesRead < (int)sizeof(header))
-                nbBytesRead += recv(sock, ((char*)header) + nbBytesRead , sizeof(header)-nbBytesRead, 0);
-            if (nbBytesRead < (int)sizeof(header))
-                nbBytesRead += recv(sock, ((char*)header) + nbBytesRead , sizeof(header)-nbBytesRead, 0);
 
             if (nbBytesRead!=sizeof(header))
             {//incomplete com
-                printf("Recv error when trying to get scan_MATRIX_XYZI8 header\n");
+                printf("Recv error when trying to get CameraCloud header\n");
                 CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
                 return VN_eERR_SocketIncompleteCom;
             }
-            status=header[0];
-            cloudBytesSize=header[1];
-            cloudPoints=header[2];
-            rowCount=header[3];
-            columnCount=header[4];
-
-            //check that the status indicates scan sucess
-            if (status!=0)
-            {
-                printf("Scan failed with error status %d\n",header[0]);
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_SocketRecvError;
-            }
+            cloudBytesSize=header[0];
+            rowCount=header[1];
+            columnCount=header[2];
 
             //check that there is no incoherency in the cloud of points size
-            const int cPointSize=3*4+1;//each point is 3 4-bytes VN_REAL32 and one 1-byte VN_UCHAR
-            int expectedCloudSize=2*4 + rowCount*columnCount*cPointSize;//in this format the cloud is transfered as a matrix,
-            // and for compatibility with the other scan formats the rowCount & columnCount are considered to be part of
-            // the cloud of points data when computing the buffer size
+            const int cPointSize=3*4+1;//each point is 3 4-bytes VN_REAL32 + uint8
+            int expectedCloudSize=rowCount*columnCount*cPointSize;//in this format the cloud is transfered as a matrix,
 
-            //with each case of the matrix containing either a point or 0
+            //with each case of the matrix containing either a point or nan
             if (cloudBytesSize != expectedCloudSize)
             {
-                printf("ERROR : Scan result header is incoherent : for %d points, we expected a buffer size of %d bytes, not %d\n",
-                       cloudPoints,expectedCloudSize,cloudBytesSize);
+                printf("ERROR : Scan result header is incoherent : for a %d x %d matrix we expected a buffer size of %d bytes, not %d\n",
+                       rowCount,columnCount,expectedCloudSize,cloudBytesSize);
                 CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
                 return VN_eERR_BadHeader;
             }
@@ -1760,97 +1607,61 @@ VN_tERR_Code VN_ExecuteSCAN_CameraCOP_XYZI8_sampling(const char *pIpAddress,
 
             printf("Receiving a matrix cloud of size %d rows & %d columns\n",rowCount,columnCount);
 
-            //read the cloud of points
-            //Note : because of the size of the data to read, we might need several calls to recv to properly receive all the data
-            /*Warning : the Point_XYZI struct used here tends to be automatically padded by the compiler when used in arrays
-             * because unaligned memory access tends to be slower.
-             *However, that means that we can't just transfer directly the binary stream from the Cirrus to the buffer, we need
-             * to go through an intermediary buffer then store its contents properly into the Point_XYZI array.
-             */
-            char *pBuffer=(char*)malloc(cloudBytesSize);
-            if (pBuffer == NULL)
+//read the cloud of points
+//Note : because of the size of the data to read, we might need several calls to recv to properly receive all the data
+//Note2 : this point data structure is aligned on four bytes, so we can receive it directly
+
+//define a timeout on the VN_SOCKET, to make sure we can't get stuck in an infinite loop
+#ifdef WIN32
+            int timeout=30000;
+            setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout,sizeof(timeout));
+#else
+            struct timeval tv;
+            tv.tv_sec=10;  /* 10 Secs Timeout */
+            tv.tv_usec=1;  // Not init'ing this can cause strange errors
+
+            setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv,sizeof(struct timeval));
+#endif
+            int bytesRead=0;
+            char *pCloud=(char*)pCloud_XYZI8;
+            while (bytesRead < cloudBytesSize)
             {
-                printf("Error : failed to allocate enough memory for the image intermediary buffer\n");
-                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                return VN_eERR_InsufficientMemory;
-            }
-
-        //define a timeout on the VN_SOCKET, to make sure we can't get stuck in an infinite loop
-        #ifdef WIN32
-                    int timeout=30000;
-                    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout,sizeof(timeout));
-        #else
-                    struct timeval tv;
-                    tv.tv_sec=30;  /* 30 Secs Timeout */
-                    tv.tv_usec=1;  // Not init'ing this can cause strange errors
-
-                    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv,sizeof(struct timeval));
-        #endif
-                    int bytesRead=2*4;//doesn't start at 0 here, because we already read rowCount & columnCount...
-                    char *pBufferPtr=pBuffer;
-                    while (bytesRead < cloudBytesSize)
-                    {
-                        int rVal=recv(sock, pBufferPtr, cloudBytesSize-bytesRead, 0);
-                        if (rVal==-1)
-                        {//a return value of -1 indicate a VN_SOCKET error
-                            printf("VN_SOCKET error when trying to get scan data\n");
-                            CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                            free(pBuffer);//free the buffer correctly before exiting...
-                            return VN_eERR_SocketRecvError;
-                        }
-
-                        if (rVal != 0)
-                        {
-                            bytesRead += rVal;
-                            pBufferPtr += rVal;
-                        }
-                        else
-                        {
-                            //with the large timeout defined, not receiving any bytes here means
-                            // a com failure...
-                            printf("Timeout error when trying to get scan data\n");
-                            CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
-                            free(pBuffer);//free the buffer correctly before exiting...
-                            return VN_eERR_SocketIncompleteCom;
-                        }
-                    }
-
-                    //extracts points from the intermediary buffer...
-                    pBufferPtr=pBuffer;
-                    for(int pt=0 ; pt<rowCount*columnCount ; pt++)
-                    {
-                        VN_REAL32 x=*((VN_REAL32*)pBufferPtr);
-                        pBufferPtr += sizeof(VN_REAL32);
-                        VN_REAL32 y=*((VN_REAL32*)pBufferPtr);
-                        pBufferPtr += sizeof(VN_REAL32);
-                        VN_REAL32 z=*((VN_REAL32*)pBufferPtr);
-                        pBufferPtr += sizeof(VN_REAL32);
-                        VN_UINT8 I=*((VN_UINT8*)pBufferPtr);
-                        pBufferPtr += sizeof(VN_UINT8);
-                        pCloud_XYZI8[pt].x=x;
-                        pCloud_XYZI8[pt].y=y;
-                        pCloud_XYZI8[pt].z=z;
-                        pCloud_XYZI8[pt].i=I;
-                    }
-
-                    free(pBuffer);
-
-                    //if reached here : cloud of points received properly ; update cloud size
-                    *pCloudSize=cloudPoints;
-                    //also update matrix size
-                    *pMatrixColumns=columnCount;
-                    *pMatrixRows=rowCount;
+                int rVal=recv(sock, pCloud, cloudBytesSize-bytesRead, 0);
+                if (rVal==-1)
+                {//a return value of -1 indicate a VN_SOCKET error
+                    printf("VN_SOCKET error when trying to get scan data (received %d of %d bytes expected)\n",bytesRead,cloudBytesSize);
+                    CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
+                    return VN_eERR_SocketRecvError;
                 }
-            }
 
-            //if reached here : command successful, close VN_SOCKET properly
-            err=CirrusCom_End_connection(sock);
-            if (err!=VN_eERR_NoError)
-                return err;
+                if (rVal != 0)
+                {
+                    bytesRead += rVal;
+                    pCloud += rVal;
+                }
+                else
+                {
+                    //with the large timeout defined, not receiving any bytes here means
+                    // a com failure...
+                    printf("Timeout error when trying to get scan data (received %d of %d bytes expected)\n",bytesRead,cloudBytesSize);
+                    CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
+                    return VN_eERR_SocketIncompleteCom;
+                }
+            }            
+            //also update matrix size
+            *pMatrixColumns=columnCount;
+            *pMatrixRows=rowCount;
+        }
+    }
 
-            printf("SCAN command successfull ; a matrix cloud of %d points was received.\n",*pCloudSize);
+    //if reached here : command successful, close VN_SOCKET properly
+    err=CirrusCom_End_connection(sock);
+    if (err!=VN_eERR_NoError)
+        return err;
 
-            return VN_eERR_NoError;
+    printf("SCAN command successfull ; a matrix cloud of size %d x %d of XYZi points was received.\n",*pMatrixRows,*pMatrixColumns);
+
+    return VN_eERR_NoError;
 }
 
 /**
@@ -2237,16 +2048,17 @@ VN_tERR_Code VN_Cirrus3DHandler_ForceVersionDevice(VN_Cirrus3DHandler *pCirrus3D
         return err;
     }
 
+    //if reached here : command successful, close VN_SOCKET properly
+    err = CirrusCom_End_connection(sock);
+    if (err!=VN_eERR_NoError)
+        return err;
+
     if(pCirrus3DHandler->ProtocolVersion!=protocolVersion) return VN_eERR_Failure;
     if(pCirrus3DHandler->HeaderVersion!=headerVersion) return VN_eERR_Failure;
     if(ackstatus!=VN_eERR_NoError) return ackstatus;
     if(deviceVersion!=NewDeviceVersion) return VN_eERR_Failure;
     pCirrus3DHandler->DeviceVersion=NewDeviceVersion;
 
-    //if reached here : command successful, close VN_SOCKET properly
-    err = CirrusCom_End_connection(sock);
-    if (err!=VN_eERR_NoError)
-        return err;
 
     return VN_eERR_NoError;
 }

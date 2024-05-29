@@ -8,6 +8,14 @@
  * 11/04/2024 NEW: new function VN_ExecuteSCAN_CameraCOP_XYZRGB............. P.H
  * 11/04/2024 NEW: new function VN_Cirrus3DHandler_Get...................... P.H
  * 11/04/2024 CHANGED VN_ExecuteSCAN_CameraCOP_XYZRGB added param MiddleCam. F.R
+ * 16/05/2024 NEW: VN_ExecuteSCAN_readHeader
+ *                 VN_ExecuteSCAN_CameraCOP_XYZI8
+ *                 VN_ExecuteSCAN_CameraCOP_XYZI8_sampling
+ *                 VN_ExecuteSCAN_Matrix_XYZRGB_readHeader
+ *            REMOVE: VN_ExecuteSCAN_CameraCOP_XYZRGB....................... P.H
+ * 17/05/2024 NEW function VN_ExecuteSCAN_CameraCOP_MiddleCam2_XYZI......... F.R
+ * 24/05/2024 NEW: VN_ExecuteSCAN_CameraCOP_XYZI8_s
+ *                 VN_ExecuteSCAN_CameraCOP_XYZI8_sampling_s................ P.H
  *------------------------------------------------------------------------------
  */
 
@@ -46,6 +54,16 @@ VN_tERR_Code VN_ExecuteCommandINFO(const char *IPAddress,
  */
 VN_tERR_Code VN_ExecuteCommandRECI(const char *IPAddress,
                                    int ConfigId);
+
+
+
+/** @ingroup CloudOfPoint
+ * \brief Read header receive on the socket sock after a command SCAN
+ * \param[in] sock : socket used to send the SCAN command
+ * \retval VN_eERR_NoError if success
+ * \retval Error code otherwise
+ */
+VN_tERR_Code VN_ExecuteSCAN_readHeader(VN_SOCKET sock);
 
 /** @ingroup CloudOfPoint
  * \brief Request the Cirrus3D to scan and get the scan result as a XYZ cloud
@@ -107,6 +125,7 @@ VN_tERR_Code VN_ExecuteSCAN_Matrix_XYZRGB(const char *IPAddress, const int MaxCl
  * \brief request the Cirrus3D to scan and get the scan result as matrix of XYZI8 points
  *  The matrix corresponds to a rectified image from the left camera.
  *  In this format the empty elements of the matrix have NaN coordinates.
+ *  Available only for CirrusSensor version 3.0.0 and higher.
  * \param[in] IPAddress         : IP address of the Cirrus3D
  * \param[in] MaxCloudSize      : Max number of points that can be stored in the cloud of points buffer
  * \param[out] pCloud_XYZI8     : pointer to a buffer able to store the resulting cloud of points
@@ -123,26 +142,112 @@ VN_tERR_Code VN_ExecuteSCAN_CameraCOP_XYZI8(const char *pIpAddress,
                                              int *pCloudSize, int *pMatrixColumns, int *pMatrixRows,
                                              VN_BOOL fromMiddleCamPOV);
 
+
 /** @ingroup CloudOfPoint
  * \brief request the Cirrus3D to scan and get the scan result as matrix of XYZI points
  *  The matrix corresponds to a rectified image from the left camera or a virtual middle camera.
  *  In this format the empty elements of the matrix have NaN coordinates.
- * \param[in] IPAddress         : IP address of the Cirrus3D
+ *  Function with version compatibility check before connection to the Cirrus3D.
+ * \param[in] pCirrus3DHandler  : Cirrus3DHandler
  * \param[in] MaxCloudSize      : Max number of points that can be stored in the cloud of points buffer
  * \param[out] pCloud_XYZI8    : pointer to a buffer able to store the resulting cloud of points
  * \param[out] pCloudSize       : Will contain the number of non-zero points in the matrix
  * \param[out] pMatrixColumns   : Will contain the number of columns in the matrix
  * \param[out] pMatrixRows      : Will contain the number of rows in the matrix
+ * \param[out] fromMiddleCamPOV : 1->the point of view of a virtual ideal middle camera, 0-> left camera
+ * \retval VN_eERR_NoError if success
+ * \retval Error code otherwise
+ */
+VN_tERR_Code VN_ExecuteSCAN_CameraCOP_XYZI8_s(const VN_Cirrus3DHandler *pCirrus3DHandler,
+                                              const int MaxCloudSize,
+                                              VN_Point_XYZI8 *pCloud_XYZI8,
+                                              int *pCloudSize, int *pMatrixColumns, int *pMatrixRows,
+                                              VN_BOOL fromMiddleCamPOV);
+
+/** @ingroup CloudOfPoint
+ * \brief request the Cirrus3D to scan and get the scan result as matrix of XYZI points
+ *  The matrix corresponds to a rectified image from the left camera or a virtual middle camera.
+ *  In this format the empty elements of the matrix have NaN coordinates.
+ *  Available only for CirrusSensor version 3.0.0 and higher.
+ * \param[in] IPAddress         : IP address of the Cirrus3D
+ * \param[in] MaxCloudSize      : Max number of points that can be stored in the cloud of points buffer
+ * \param[out] pCloud_XYZI8     : pointer to a buffer able to store the resulting cloud of points
+ * \param[out] pCloudSize       : Will contain the number of non-zero points in the matrix
+ * \param[out] pMatrixColumns   : Will contain the number of columns in the matrix
+ * \param[out] pMatrixRows      : Will contain the number of rows in the matrix
+ * \param[out] samplingFactor   : This parameter corresponds to the sampling factor applied during the conversion from the raw unordered cloud of point to MatrixXYZI8. The default value is 1.2
  * \retval VN_eERR_NoError if success
  * \retval Error code otherwise
  */
 VN_tERR_Code VN_ExecuteSCAN_CameraCOP_XYZI8_sampling(const char *pIpAddress,
                                                      const int MaxCloudSize,
                                                      VN_Point_XYZI8 *pCloud_XYZI8,
-                                                     int *pCloudSize, int *pMatrixColumns, int *pMatrixRows,
+                                                     int *pCloudSize,
+                                                     int *pMatrixColumns,
+                                                     int *pMatrixRows,
                                                      VN_BOOL fromMiddleCamPOV,
                                                      VN_REAL32 samplingFactor);
+/** @ingroup CloudOfPoint
+ * \brief request the Cirrus3D to scan and get the scan result as matrix of XYZI points
+ *  The matrix corresponds to a rectified image from the left camera or a virtual middle camera.
+ *  In this format the empty elements of the matrix have NaN coordinates.
+ *  Available only for CirrusSensor version 3.0.0 and higher.
+ *  Function with version compatibility check before connection to the Cirrus3D.
+ * \param[in] pCirrus3DHandler  : Cirrus3DHandler
+ * \param[in] MaxCloudSize      : Max number of points that can be stored in the cloud of points buffer
+ * \param[out] pCloud_XYZI8     : pointer to a buffer able to store the resulting cloud of points
+ * \param[out] pCloudSize       : Will contain the number of non-zero points in the matrix
+ * \param[out] pMatrixColumns   : Will contain the number of columns in the matrix
+ * \param[out] pMatrixRows      : Will contain the number of rows in the matrix
+ * \param[out] samplingFactor   : This parameter corresponds to the sampling factor applied during the conversion from the raw unordered cloud of point to MatrixXYZI8. The default value is 1.2
+ * \retval VN_eERR_NoError if success
+ * \retval Error code otherwise
+ */
+VN_tERR_Code VN_ExecuteSCAN_CameraCOP_XYZI8_sampling_s(const VN_Cirrus3DHandler *pCirrus3DHandler,
+                                                       const int MaxCloudSize,
+                                                       VN_Point_XYZI8 *pCloud_XYZI8,
+                                                       int *pCloudSize,
+                                                       int *pMatrixColumns,
+                                                       int *pMatrixRows,
+                                                       VN_BOOL fromMiddleCamPOV,
+                                                       VN_REAL32 samplingFactor);
 
+/** @ingroup CloudOfPoint
+ * \brief request the Cirrus3D to scan and get the scan result as matrix of XYZI points
+ *  The points are organized in a structured cloud, sorted by their projection on
+ *   a virtual camera centered on the Cirrus. The matrix size (number of rows & columns)
+ *   vary depending on the selected density, the selected ROI, and the Cirrus calibration.
+ *  The scan result is transfered during the scan instead of after to minize the
+ *   total time needed for the operation.
+ *  In this format the empty elements of the matrix have NaN coordinates.
+ *  Available only for CirrusSensor version 3.1.0 and higher.
+ * \param[in] IPAddress         : IP address of the Cirrus3D
+ * \param[in] MaxCloudSize      : Max number of points that can be stored in the cloud of points buffer
+ * \param[out] pCloud_XYZI8     : pointer to a buffer able to store the resulting cloud of points
+ * \param[out] pMatrixColumns   : Will contain the number of columns in the matrix
+ * \param[out] pMatrixRows      : Will contain the number of rows in the matrix
+ * \retval VN_eERR_NoError if success
+ * \retval Error code otherwise
+ */
+VN_tERR_Code VN_ExecuteSCAN_CameraCOP_MiddleCam2_XYZI(const char *pIpAddress,
+                                                      const int MaxCloudSize,
+                                                      VN_Point_XYZI8 *pCloud_XYZI8,
+                                                      int *pMatrixColumns,
+                                                      int *pMatrixRows);
+
+
+/** @ingroup CloudOfPoint
+ * \brief Read header receive on the socket sock after a command SCAN Matrix_XYZRGB
+ * \param[in] sock : socket used to send the SCAN command
+ * \retval VN_eERR_NoError if success
+ * \retval Error code otherwise
+ */
+VN_tERR_Code VN_ExecuteSCAN_Matrix_XYZRGB_readHeader(VN_SOCKET sock,
+                                                     VN_INT32 *pStatus,
+                                                     VN_INT32 *pCloudBytesSize,
+                                                     VN_INT32 *pCloudPoints,
+                                                     VN_INT32 *pRowCount,
+                                                     VN_INT32 *pColumnCount);
 
 /**
  * \brief get status / keepAlive response from the Cirrus.
@@ -401,15 +506,6 @@ static inline VN_tERR_Code VN_Cirrus3DHandler_SetDataStringValue(const VN_Cirrus
     return VN_Cirrus3DHandler_SetDataValue(pCirrus3DHandler,
                                            (VN_tDataRoot*)pDataString);
 };
-
-/** @ingroup GeneralSetting
- * \brief This function is used to get Cirrus3D available
- * \param[in,out] pNbCirrus3DAvailable : Number
- * \param[in,out] pCirrus3DHandler     : NULL pointer,
- * \retval VN_eERR_NoError if success
- * \retval Error code otherwise
- */
-VN_tERR_Code VN_GetCirrus3DAvailable(VN_INT32 *pNbCirrus3DAvailable, char ipCirrus3DAvailable[20][VN_cSizeDataString]);
 
 /**************************************************************************/
 #define VN_cMagicNumber 123456

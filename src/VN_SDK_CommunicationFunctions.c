@@ -4,7 +4,10 @@
  *  History:
  *  16/02/2024: NEW: new function CirrusCom_ReceiveBufferofSizeN............ P.H
  *  16/02/2024: CHANGED: remove CirrusCom_ReceiveCommandWithSize function... P.H
-/*------------------------------------------------------------------------------
+ *  16/05/2024: NEW: new function VN_Cirrus3DHandler_getHeaderVersion
+ *                                CirrusCom_setTimeout...................... P.H
+ *------------------------------------------------------------------------------
+ */
 
 /***************************** API FUNCTIONS ******************************/
 /** @ingroup General
@@ -15,6 +18,16 @@
 VN_UINT32 VN_Cirrus3DHandler_getProtocolVersion()
 {
     return VN_cProtocolVersion;
+}
+
+/** @ingroup General
+ * \brief This function is used to get Cirrus3D version header
+ * \retval VN_eERR_NoError if success
+ * \retval Error code otherwise
+ */
+VN_UINT32 VN_Cirrus3DHandler_getHeaderVersion(void)
+{
+    return VN_cHeaderVersion;
 }
 
 /** @ingroup CommunicationTool
@@ -106,6 +119,31 @@ VN_tERR_Code CirrusCom_connect(const char *pIpAddress,
 }
 
 /**
+ * \brief define a timeout on the VN_SOCKET, to make sure we can't get stuck in an infinite loop
+ *
+ * \param[in] sock    : Cirrus connection VN_SOCKET.
+ * \param[in] timeout : VN_SOCKET timeout in second.
+ * \retval VN_eERR_NoError if success
+ * \retval error code otherwise
+ */
+VN_tERR_Code CirrusCom_setTimeout(VN_SOCKET sock,
+                                  VN_INT32 timeout)
+{
+#ifdef WIN32
+    int timeout=30000;
+    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout,sizeof(timeout));
+#else
+    struct timeval tv;
+    tv.tv_sec=timeout;
+    tv.tv_usec=0;
+
+    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv,sizeof(struct timeval));
+#endif
+
+    return VN_eERR_NoError;
+}
+
+/**
  * \brief start connection with the Cirrus
  *
  * \param[in] address    : Cirrus addressIP
@@ -187,13 +225,13 @@ VN_tERR_Code CirrusCom_KAST_connect(const char *address,
     sin.sin_port = htons(23001);
     sin.sin_family = AF_INET;
 
-    printf("Trying connection from IPaddress %s on port 20001\n", address);
+    //printf("Trying connection from IPaddress %s on port 20001\n", address);
     if(connect(*pSock,(SOCKADDR *) &sin, sizeof(SOCKADDR)) == VN_SOCKET_ERROR)
     {
         printf("Connection from IPaddress %s on port 20001 failed\n",address);
         return VN_eERR_SocketConnectError;
     }
-    printf("Connection successful\n");
+    //printf("Connection successful\n");
 
     return VN_eERR_NoError;
 #else
@@ -310,7 +348,7 @@ VN_tERR_Code CirrusCom_ReceiveBufferofSizeN(VN_SOCKET sock, char *buffer, int si
         int rVal = recv(sock, buffer, sizeBuffer-bytesRead, 0);
         if (rVal==-1)
         {//a return value of -1 indicate a VN_SOCKET error
-            printf("Error in SCAN_XYZ command : VN_SOCKET error when receiving command result\n");
+            printf("Error in CirrusCom_ReceiveBufferofSizeN command : VN_SOCKET error when receiving command result\n");
             CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
             return VN_eERR_SocketRecvError;
         }
@@ -324,7 +362,7 @@ VN_tERR_Code CirrusCom_ReceiveBufferofSizeN(VN_SOCKET sock, char *buffer, int si
         {
             //with the large timeout defined, not receiving any bytes here means
             // a com failure...
-            printf("Error in SCA_XYZ command : incomplete com\n");
+            printf("Error in CirrusCom_ReceiveBufferofSizeN function : incomplete com\n");
             CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
             return VN_eERR_SocketIncompleteCom;
         }

@@ -4,6 +4,8 @@
  *  History:
  *  16/02/2024: NEW: new function CirrusCom_ReceiveBufferofSizeN............ P.H
  *  16/02/2024: CHANGED: remove CirrusCom_ReceiveCommandWithSize function... P.H
+ *  16/05/2024: NEW: new function VN_Cirrus3DHandler_getHeaderVersion
+ *                                CirrusCom_setTimeout...................... P.H
  *------------------------------------------------------------------------------
  */
 
@@ -16,6 +18,13 @@
  * \retval Error code otherwise
  */
 VN_UINT32 VN_Cirrus3DHandler_getProtocolVersion(void);
+
+/** @ingroup General
+ * \brief This function is used to get Cirrus3D version header
+ * \retval VN_eERR_NoError if success
+ * \retval Error code otherwise
+ */
+VN_UINT32 VN_Cirrus3DHandler_getHeaderVersion(void);
 
 /** @ingroup CommunicationTool
  * \brief Enable connection protocol for Windows OS
@@ -43,6 +52,17 @@ VN_tERR_Code VN_CirrusCom_End(void);
  */
 VN_tERR_Code CirrusCom_connect(const char *address,
                                VN_SOCKET* pSock);
+
+/**
+ * \brief define a timeout on the VN_SOCKET, to make sure we can't get stuck in an infinite loop
+ *
+ * \param[in] sock    : Cirrus connection VN_SOCKET.
+ * \param[in] timeout : VN_SOCKET timeout in second.
+ * \retval VN_eERR_NoError if success
+ * \retval error code otherwise
+ */
+VN_tERR_Code CirrusCom_setTimeout(VN_SOCKET sock,
+                                  VN_INT32 timeout);
 
 /**
  * \brief start connection with the Cirrus

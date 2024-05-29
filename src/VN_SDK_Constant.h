@@ -1,3 +1,11 @@
+/*
+ *  History:
+ * 16/05/2024 ADDED: VN_cSocketTimeout enum................................. P.H
+ * 16/05/2024 CHANGED: VN_Point_XYZI8 is declared without padding
+ *            CHANGED: VN_Point_XYZI16 is declared without padding.......... P.H
+ *------------------------------------------------------------------------------
+ */
+
 #ifndef CONSTANT_H
 #define CONSTANT_H
 
@@ -57,6 +65,13 @@ typedef struct in_addr IN_ADDR;
  *  @brief Maximum number of Cirrus3D
  */
 #define VN_cMaxNbCirrus3D 20
+
+
+/** @ingroup GeneralConst
+ *  @def VN_cSocketTimeout
+ *  @brief VN_Socket timeout value of socket VN_Socket used by recv function. Value in second.
+ */
+#define VN_cSocketTimeout 20
 
 /*******************************************************************************************/
 
@@ -124,6 +139,8 @@ typedef struct _VN_Cirrus3DHandler
   * @param z: coordinate z (32-bit in single-precision IEEE-754 binary floatingpoint format)
   * @param i: intensity (16-bit unsigned integer)
   */
+#pragma pack(push,1) // Pushes the current alignment setting on an internal stack and then sets the new alignment.
+                     // Use the flag WITH_PADDING if #pragma directives is not compatible with your compiler.
 typedef struct _VN_Point_XYZI16
 {
     VN_REAL32 x;
@@ -131,6 +148,7 @@ typedef struct _VN_Point_XYZI16
     VN_REAL32 z;
     VN_UINT16 i;
 }VN_Point_XYZI16;
+#pragma pack(pop) //restores the alignment setting to the one saved at the top of the internal stack (and removes that stack entry).
 
 /** @ingroup CloudOfPoint
   * @struct VN_Point_XYZI8
@@ -140,6 +158,8 @@ typedef struct _VN_Point_XYZI16
   * @param z: coordinate z (32-bit in single-precision IEEE-754 binary floating-point format)
   * @param i: intensity (8-bit unsigned integer)
   */
+#pragma pack(push,1) // Pushes the current alignment setting on an internal stack and then sets the new alignment.
+                     // Use the flag WITH_PADDING if #pragma directives is not compatible with your compiler.
 typedef struct _VN_Point_XYZI8
 {
     VN_REAL32 x;
@@ -147,6 +167,7 @@ typedef struct _VN_Point_XYZI8
     VN_REAL32 z;
     VN_UINT8 i;
 }VN_Point_XYZI8;
+#pragma pack(pop) //restores the alignment setting to the one saved at the top of the internal stack (and removes that stack entry).
 
 /** @ingroup CloudOfPoint
   * @struct VN_Point_XYZRGB
@@ -213,7 +234,7 @@ typedef enum _VN_eDataType{
  *  @brief Data status in the Cirrus3D
  */
 typedef enum _VN_eAvailableStatus{
-    VN_eAvailable, /*!< @brief Data available*/
+    VN_eAvailable=0, /*!< @brief Data available*/
     VN_eDeprecated, /*!< @brief Data will be removed in the futur version*/
     VN_eObsolete, /*!< @brief Data obsolete*/
 }VN_eAvailableStatus;
