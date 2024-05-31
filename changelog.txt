@@ -1,4 +1,6 @@
 Version 3.999.1
+The new features will be compatible with version 3.999.1 of the Cirrus3D App (DeviceVersion=2)
+
 CHANGE name: VN_SaveCloudAsBinFile-> VN_SaveXYZCloudAsBinFile
              VN_SaveCloudAsTxtFile-> VN_SaveXYZCloudAsTxtFile
              VN_SaveAsPcd->VN_SaveXYZI16CloudAsPcdFile
