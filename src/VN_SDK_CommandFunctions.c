@@ -20,7 +20,9 @@
  *            REMOVE: VN_ExecuteSCAN_CameraCOP_XYZRGB....................... P.H
  * 17/05/2024 NEW function VN_ExecuteSCAN_CameraCOP_MiddleCam2_XYZI......... F.R
  * 24/05/2024 NEW: VN_ExecuteSCAN_CameraCOP_XYZI8_s
- *                 VN_ExecuteSCAN_CameraCOP_XYZI8_sampling_s................. P.H
+ *                 VN_ExecuteSCAN_CameraCOP_XYZI8_sampling_s................ P.H
+ * 04/06/2024 CHANGED Compatibility of different versions CSA<->SDK: Improved
+ *   error handling......................................................... P.H
  *-------------------------------------------------------------------------------
  */
 
@@ -1831,8 +1833,10 @@ VN_tERR_Code VN_Cirrus3DHandler_Initialize(char* pIpAddress,
     VN_SOCKET sock;
     VN_UINT32 ackstatus;
     VN_UINT32 sizeData;
+    int status;
 
     memset((char*)pCirrus3DHandler->IPAddress, '\0', VN_cSizeDataString);
+    memset((char*)pCirrus3DHandler->SerialNumber, '\0', VN_cSizeDataString);
 #ifdef WIN32
     memcpy_s((void*)pCirrus3DHandler->IPAddress,VN_cSizeDataString,pIpAddress,strlen(pIpAddress));
 #else
@@ -1846,7 +1850,12 @@ VN_tERR_Code VN_Cirrus3DHandler_Initialize(char* pIpAddress,
                                   20002,
                                   &sock);
     if (err!=VN_eERR_NoError)
-        return err;
+    {
+        if ( VN_ExecuteCommandSTS((char*)pCirrus3DHandler->IPAddress, &status)==VN_eERR_NoError)
+            return VN_eERR_IncompatibleProtocolVersion;
+        else
+            return err;
+    }
 
     err=VN_COM_HeaderCmd_send(sock,
                               pCirrus3DHandler->ProtocolVersion,
@@ -1881,19 +1890,26 @@ VN_tERR_Code VN_Cirrus3DHandler_Initialize(char* pIpAddress,
     }
 
     int size= VN_cSizeDataString;
-    if((int)sizeData!=size)
+    if((int)sizeData==size)
     {
-        CirrusCom_End_connection(sock);
-        return VN_eERR_Failure;
+        err=CirrusCom_ReceiveBufferofSizeN(sock,
+                                           (char*)pCirrus3DHandler->SerialNumber,
+                                           size);
+        if(err!=VN_eERR_NoError)
+        {
+            CirrusCom_End_connection(sock);
+            return err;
+        }
     }
-
-    err=CirrusCom_ReceiveBufferofSizeN(sock,
-                                       (char*)pCirrus3DHandler->SerialNumber,
-                                       size);
-    if(err!=VN_eERR_NoError)
+    else
     {
-        CirrusCom_End_connection(sock);
-        return err;
+        if((int)sizeData!=0)
+        {
+            CirrusCom_End_connection(sock);
+            return VN_eERR_Failure;
+        }
+        else
+            sprintf(pCirrus3DHandler->SerialNumber, "Unread");
     }
 
     //if reached here : command successful, close VN_SOCKET properly
@@ -2055,7 +2071,14 @@ VN_tERR_Code VN_Cirrus3DHandler_ForceVersionDevice(VN_Cirrus3DHandler *pCirrus3D
 
     if(pCirrus3DHandler->ProtocolVersion!=protocolVersion) return VN_eERR_Failure;
     if(pCirrus3DHandler->HeaderVersion!=headerVersion) return VN_eERR_Failure;
-    if(ackstatus!=VN_eERR_NoError) return ackstatus;
+    if(ackstatus!=VN_eERR_NoError)
+    {
+        if(ackstatus==VN_eERR_UnknownCommand)
+            return VN_eERR_IncompatibleDeviceVersion;
+        else
+            return ackstatus;
+    }
+
     if(deviceVersion!=NewDeviceVersion) return VN_eERR_Failure;
     pCirrus3DHandler->DeviceVersion=NewDeviceVersion;
 
@@ -2545,6 +2568,7 @@ VN_tERR_Code VN_GetCirrus3DAvailable(VN_INT32 *pNbCirrus3DAvailable, char ipCirr
     memset(ipCirrus3DAvailable, '\0', VN_cMaxNbCirrus3D*VN_cSizeDataString*sizeof(char));
 
     VN_tERR_Code err=VN_eERR_NoError;
+    VN_tERR_Code errCommand=VN_eERR_NoError;
     const int MAXBUF=50;
     int sock, status, sinlen;
     int option=1;
@@ -2621,13 +2645,13 @@ VN_tERR_Code VN_GetCirrus3DAvailable(VN_INT32 *pNbCirrus3DAvailable, char ipCirr
                         else
                         {
                             printf("Error in reading IPAddress");
-                            err=VN_eERR_Failure;
+                            errCommand=VN_eERR_Failure;
                         }
                     }
                     else
                     {
                         printf("Error in reading IPAddress");
-                        err=VN_eERR_Failure;
+                        errCommand=VN_eERR_Failure;
 
                     }
                 }
@@ -2641,7 +2665,7 @@ VN_tERR_Code VN_GetCirrus3DAvailable(VN_INT32 *pNbCirrus3DAvailable, char ipCirr
     if (err!=VN_eERR_NoError)
         return err;
 
-    return err;
+    return errCommand;
 }
 
 
