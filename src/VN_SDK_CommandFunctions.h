@@ -23,6 +23,8 @@
 /***************************** API FUNCTIONS ******************************/
 /** @ingroup CloudOfPoint
  * \brief Get status of Cirrus3D (ready or not)
+ * 
+ * Function available for CirrusSensor version 1.0.0 and higher
  * \param[in] IPAddress : IP address of the Cirrus3D
  * \param[out] pStatus  : Status of Cirrus3D (= 0 if ready)
  * \retval VN_eERR_NoError if success (i.e. Cirrus ready)
@@ -33,6 +35,8 @@ VN_tERR_Code VN_ExecuteCommandSTS(const char *pIpAddress,
 
 /** @ingroup CloudOfPoint
  * \brief Request its information from the Cirrus3D
+ *
+ * Function available for CirrusSensor version 1.0.0 and higher
  * \param[in] IPAddress: IP address of the Cirrus3D
  * \param[in] InfoType: 1 to request Cirrus3D type/size, 2 to request Cirrus3D serial number
  * \param[out] pResult: Char array of size at least 64 to store the requested info
@@ -47,6 +51,8 @@ VN_tERR_Code VN_ExecuteCommandINFO(const char *IPAddress,
 
 /** @ingroup CloudOfPoint
  * \brief Command the Cirrus3D to load the specified scan configuration
+ *
+ * Function available for CirrusSensor version 1.0.0 and higher
  * \param[in] IPAddress : IP address of the Cirrus3D
  * \param[in] ConfigId  : ID of the config to load
  * \retval VN_eERR_NoError if success
@@ -67,6 +73,8 @@ VN_tERR_Code VN_ExecuteSCAN_readHeader(VN_SOCKET sock);
 
 /** @ingroup CloudOfPoint
  * \brief Request the Cirrus3D to scan and get the scan result as a XYZ cloud
+ *
+ * Function available for CirrusSensor version 1.0.0 and higher
  * \param[in] IPAddress     : IP address of the Cirrus3D
  * \param[in] MaxCloudSize  : Max number of points that can be stored in the cloud of points buffer
  * \param[out] pCloud_XYZ   : Pointer to a buffer able to store the resulting cloud of points
@@ -79,6 +87,8 @@ VN_tERR_Code VN_ExecuteSCAN_XYZ(const char *IPAddress, const int MaxCloudSize, c
 
 /** @ingroup CloudOfPoint
  * \brief Request the Cirrus3D to scan and get the scan result as a XYZI cloud
+ *
+ * Function available for CirrusSensor version 1.0.0 and higher
  * \param[in] IPAddress     : IP address of the Cirrus3D
  * \param[in] MaxCloudSize  : Max number of points that can be stored in the cloud of points buffer
  * \param[out] pCloud_XYZI  : Pointer to a buffer able to store the resulting cloud of points
@@ -91,6 +101,8 @@ VN_tERR_Code VN_ExecuteSCAN_XYZI16(const char *IPAddress, const int MaxCloudSize
 
 /** @ingroup CloudOfPoint
  * \brief Request the Cirrus3D to scan and get the scan result as matrix of XYZi points
+ *
+ * Function available for CirrusSensor version 1.0.0 and higher
  * \param[in] IPAddress         : IP address of the Cirrus3D
  * \param[in] MaxCloudSize      : Max number of points that can be stored in the cloud of points buffer
  * \param[out] pCloud_XYZi      : Pointer to a buffer able to store the resulting cloud of points
@@ -109,6 +121,8 @@ VN_tERR_Code VN_ExecuteSCAN_Matrix_XYZI8(const char *IPAddress, const int MaxClo
  *  in this format the empty elements of the matrix have NaN coordinates, and the
  *  rgb float is actually a rgb int casted as float (where all r,g,b fields are
  *  identical since the Cirrus only generate black-and-white pixel data)
+ *
+ * Function available for device version greater than or equal to 1. (CirrusSensor version 3.0.0 and higher)
  * \param[in] IPAddress         : IP address of the Cirrus3D
  * \param[in] MaxCloudSize      : Max number of points that can be stored in the cloud of points buffer
  * \param[out] pCloud_XYZRGB    : pointer to a buffer able to store the resulting cloud of points
@@ -125,7 +139,8 @@ VN_tERR_Code VN_ExecuteSCAN_Matrix_XYZRGB(const char *IPAddress, const int MaxCl
  * \brief request the Cirrus3D to scan and get the scan result as matrix of XYZI8 points
  *  The matrix corresponds to a rectified image from the left camera.
  *  In this format the empty elements of the matrix have NaN coordinates.
- *  Available only for CirrusSensor version 3.0.0 and higher.
+ *
+ * Function available for device version greater than or equal to 2. (CirrusSensor version 3.1.0 and higher)
  * \param[in] IPAddress         : IP address of the Cirrus3D
  * \param[in] MaxCloudSize      : Max number of points that can be stored in the cloud of points buffer
  * \param[out] pCloud_XYZI8     : pointer to a buffer able to store the resulting cloud of points
@@ -148,6 +163,8 @@ VN_tERR_Code VN_ExecuteSCAN_CameraCOP_XYZI8(const char *pIpAddress,
  *  The matrix corresponds to a rectified image from the left camera or a virtual middle camera.
  *  In this format the empty elements of the matrix have NaN coordinates.
  *  Function with version compatibility check before connection to the Cirrus3D.
+ *
+ * Function available for device version greater than or equal to 2. (CirrusSensor version 3.1.0 and higher)
  * \param[in] pCirrus3DHandler  : Cirrus3DHandler
  * \param[in] MaxCloudSize      : Max number of points that can be stored in the cloud of points buffer
  * \param[out] pCloud_XYZI8    : pointer to a buffer able to store the resulting cloud of points
@@ -169,6 +186,8 @@ VN_tERR_Code VN_ExecuteSCAN_CameraCOP_XYZI8_s(const VN_Cirrus3DHandler *pCirrus3
  *  The matrix corresponds to a rectified image from the left camera or a virtual middle camera.
  *  In this format the empty elements of the matrix have NaN coordinates.
  *  Available only for CirrusSensor version 3.0.0 and higher.
+ *
+ * Function available for device version greater than or equal to 2. (CirrusSensor version 3.1.0 and higher)
  * \param[in] IPAddress         : IP address of the Cirrus3D
  * \param[in] MaxCloudSize      : Max number of points that can be stored in the cloud of points buffer
  * \param[out] pCloud_XYZI8     : pointer to a buffer able to store the resulting cloud of points
@@ -191,8 +210,9 @@ VN_tERR_Code VN_ExecuteSCAN_CameraCOP_XYZI8_sampling(const char *pIpAddress,
  * \brief request the Cirrus3D to scan and get the scan result as matrix of XYZI points
  *  The matrix corresponds to a rectified image from the left camera or a virtual middle camera.
  *  In this format the empty elements of the matrix have NaN coordinates.
- *  Available only for CirrusSensor version 3.0.0 and higher.
  *  Function with version compatibility check before connection to the Cirrus3D.
+ *
+ * Function available for device version greater than or equal to 2. (CirrusSensor version 3.1.0 and higher)
  * \param[in] pCirrus3DHandler  : Cirrus3DHandler
  * \param[in] MaxCloudSize      : Max number of points that can be stored in the cloud of points buffer
  * \param[out] pCloud_XYZI8     : pointer to a buffer able to store the resulting cloud of points
@@ -220,7 +240,8 @@ VN_tERR_Code VN_ExecuteSCAN_CameraCOP_XYZI8_sampling_s(const VN_Cirrus3DHandler 
  *  The scan result is transfered during the scan instead of after to minize the
  *   total time needed for the operation.
  *  In this format the empty elements of the matrix have NaN coordinates.
- *  Available only for CirrusSensor version 3.1.0 and higher.
+ *
+ * Function available for device version greater than or equal to 2. (CirrusSensor version 3.1.0 and higher)
  * \param[in] IPAddress         : IP address of the Cirrus3D
  * \param[in] MaxCloudSize      : Max number of points that can be stored in the cloud of points buffer
  * \param[out] pCloud_XYZI8     : pointer to a buffer able to store the resulting cloud of points
@@ -262,6 +283,7 @@ VN_tERR_Code VN_ExecuteCommandKAST(const char *IPaddress);
 
 /** 
  * \brief This function is used to get Cirrus3D available
+ *  Available only for Cirrus version 2.0.0 and higher.
  * \param[in,out] pNbCirrus3DAvailable                         : Number
  * \param[in,out] ipCirrus3DAvailable[20][VN_cSizeDataString]  : IPAddress of cirrus available
  * \retval VN_eERR_NoError if success
@@ -283,6 +305,7 @@ enum
 
 /** @ingroup General
  * \brief This function is used to initialize the VN_Cirrus3DHandler structure used by the get/set data functions
+ *  Available only for Cirrus version 3.0.0 and higher.
  * \param[in]  IPAddress        : IP address of the Cirrus3D
  * \param[out] pCirrus3DHandler : Will contain the VN_Cirrus3DHandler structure initialized for the Cirrus3D with ip address=IPAddress
  * \retval VN_eERR_NoError if success
@@ -304,6 +327,7 @@ VN_tERR_Code VN_Cirrus3DHandler_Get(char* pIpAddress,
 
 /** @ingroup General
  * \brief This function is used to force device version
+ *  Available only for Cirrus version 3.0.0 and higher.
  * \param[in] pCirrus3DHandler : Data previously initialized with the VN_Cirrus3DHandler_initialize() function
  * \param[in] NewDeviceVersion : Device version used to configure the cirrus3D.
  * \retval VN_eERR_NoError if success
@@ -314,6 +338,7 @@ VN_tERR_Code VN_Cirrus3DHandler_ForceVersionDevice(VN_Cirrus3DHandler *pCirrus3D
 
 /** @ingroup Config
  * \brief This function is used to reset the VN_Cirrus3DHandler structure used by the get/set data functions
+ * Function available for device version greater than or equal to 2. (CirrusSensor version 3.1.0 and higher)
  * \param[in] pCirrus3DHandler : Will contain the VN_Cirrus3DHandler structure initialized for the Cirrus3DSensor with ip address=IPAddress
  * \retval VN_eERR_NoError if success
  * \retval Error code otherwise
@@ -322,6 +347,7 @@ VN_tERR_Code VN_Cirrus3DHandler_ResetData(VN_Cirrus3DHandler *pCirrus3DHandler);
 
 /** @ingroup Config
  * \brief This function is used to get the list of configuration datas
+ *  Available only for Cirrus version 3.0.0 and higher. 
  * \param[in]  pCirrus3DHandler : Data previously initialized with the VN_Cirrus3DHandler_initialize() function
  * \param[out] pNbParamInList   : Number of data available
  * \param[out] DataList         : List of data available
@@ -334,6 +360,7 @@ VN_tERR_Code VN_Cirrus3DHandler_GetDataRootList(const VN_Cirrus3DHandler *pCirru
 
 /** @ingroup Config
  * \brief This function is used to get the data
+ *  Available only for Cirrus version 3.0.0 and higher.
  * \snippet main.c VN_Cirrus3DHandler_GetData example
  * \param[in] pCirrus3DHandler : Data previously initialized with the VN_Cirrus3DHandler_initialize() function
  * \param[in] DataId           : Data Index
@@ -349,6 +376,7 @@ VN_tERR_Code VN_Cirrus3DHandler_GetData(const VN_Cirrus3DHandler *pCirrus3DHandl
 
 /** @ingroup Config
  * \brief This function is used to get the data of type INT32
+ *  Available only for Cirrus version 3.0.0 and higher. 
  * \param[in] pCirrus3DHandler : Data previously initialized with the VN_Cirrus3DHandler_initialize() function
  * \param[in] DataId           : Data Index
  * \param[out] pDataInt32      : Structure contains the data of type INT32
@@ -367,6 +395,7 @@ static inline VN_tERR_Code VN_Cirrus3DHandler_GetDataInt32(const VN_Cirrus3DHand
 
 /** @ingroup Config
  * \brief This function is used to get the data of type REAL32
+ *  Available only for Cirrus version 3.0.0 and higher. 
  * \param[in] pCirrus3DHandler : Data previously initialized with the VN_Cirrus3DHandler_initialize() function
  * \param[in] DataId           : Data Index
  * \param[out] pDataReal32     : Structure contains the data of type REAL32
@@ -385,6 +414,7 @@ static inline VN_tERR_Code VN_Cirrus3DHandler_GetDataReal32(const VN_Cirrus3DHan
 
 /** @ingroup Config
  * \brief This function is used to get the data of type char[]
+ *  Available only for Cirrus version 3.0.0 and higher. 
  * \param[in] pCirrus3DHandler : Data previously initialized with the VN_Cirrus3DHandler_initialize() function
  * \param[in] DataId           : Data Index
  * \param[out] pDataString     : Structure contains the data of type char[]
@@ -403,6 +433,7 @@ static inline VN_tERR_Code VN_Cirrus3DHandler_GetDataString(const VN_Cirrus3DHan
 
 /** @ingroup Config
  * \brief This function is used to get the data value
+ *  Available only for Cirrus version 3.0.0 and higher. 
  * \param[in] pCirrus3DHandler : Data previously initialized with the VN_Cirrus3DHandler_initialize() function
  * \param[in,out] pDataInt32   : Get the value of the data. The structure was initialized by calling VN_Cirrus3DHandler_GetData(), VN_Cirrus3DHandler_GetDataInt32(), VN_Cirrus3DHandler_GetDataReal32() or VN_Cirrus3DHandler_GetDataString() function
  * \retval VN_eERR_NoError if success
@@ -413,6 +444,7 @@ VN_tERR_Code VN_Cirrus3DHandler_GetDataValue(const VN_Cirrus3DHandler *pCirrus3D
 
 /** @ingroup Config
  * \brief This function is used to get the data value of type INT32
+ *  Available only for Cirrus version 3.0.0 and higher. 
  * \param[in] pCirrus3DHandler : Data previously initialized with the VN_Cirrus3DHandler_initialize() function
  * \param[in,out] pDataInt32   : Get the value of the data. The structure was initialized by calling VN_Cirrus3DHandler_GetData(), VN_Cirrus3DHandler_GetDataInt32() function
  * \retval VN_eERR_NoError if success
@@ -427,6 +459,7 @@ static inline VN_tERR_Code VN_Cirrus3DHandler_GetDataInt32Value(const VN_Cirrus3
 
 /** @ingroup Config
  * \brief This function is used to get the data value of type REAL32
+ *  Available only for Cirrus version 3.0.0 and higher. 
  * \param[in] pCirrus3DHandler : Data previously initialized with the VN_Cirrus3DHandler_initialize() function
  * \param[in,out] pDataReal32  : Get the value of the data. The structure was initialized by calling VN_Cirrus3DHandler_GetData(), VN_Cirrus3DHandler_GetDataInt32(), VN_Cirrus3DHandler_GetDataReal32() function
  * \retval VN_eERR_NoError if success
@@ -441,6 +474,7 @@ static inline VN_tERR_Code VN_Cirrus3DHandler_GetDataReal32Value(const VN_Cirrus
 
 /** @ingroup Config
  * \brief This function is used to get the data value of type char[]
+ *  Available only for Cirrus version 3.0.0 and higher. 
  * \param[in] pCirrus3DHandler : Data previously initialized with the VN_Cirrus3DHandler_initialize() function
  * \param[in,out] pDataString  : Get the data value. The structure was initialized by calling VN_Cirrus3DHandler_GetData() or VN_Cirrus3DHandler_GetDataString() function
  * \retval VN_eERR_NoError if success
@@ -455,6 +489,7 @@ static inline VN_tERR_Code VN_Cirrus3DHandler_GetDataStringValue(const VN_Cirrus
 
 /** @ingroup Config
  * \brief This function is used to set the data value
+ *  Available only for Cirrus version 3.0.0 and higher. 
  * \param[in] pCirrus3DHandler : Data previously initialized with the VN_Cirrus3DHandler_initialize() function
  * \param[in,out] pData        : Get the data value. The structure was initialized by calling VN_Cirrus3DHandler_GetData(), VN_Cirrus3DHandler_GetDataInt32(), VN_Cirrus3DHandler_GetDataReal32() or VN_Cirrus3DHandler_GetDataString() function
  * \param[in] value: new value of the data in the product.
@@ -467,6 +502,7 @@ VN_tERR_Code VN_Cirrus3DHandler_SetDataValue(const VN_Cirrus3DHandler *pCirrus3D
 
 /** @ingroup Config
  * \brief This function is used to get the data value
+ *  Available only for Cirrus version 3.0.0 and higher. 
  * \param[in] pCirrus3DHandler : Data previously initialized with the VN_Cirrus3DHandler_initialize() function
  * \param[in,out] pDataInt32   : Get the data value. The structure was initialized by calling VN_Cirrus3DHandler_GetData(), VN_Cirrus3DHandler_GetDataInt32() function
  * \retval VN_eERR_NoError if success
@@ -481,6 +517,7 @@ static inline VN_tERR_Code VN_Cirrus3DHandler_SetDataInt32Value(const VN_Cirrus3
 };
 /** @ingroup Config
  * \brief This function is used to get the data value
+ *  Available only for Cirrus version 3.0.0 and higher. 
  * \param[in] pCirrus3DHandler : Data previously initialized with the VN_Cirrus3DHandler_initialize() function
  * \param[in,out] pDataReal32  : Get the data value. The structure was initialized by calling VN_Cirrus3DHandler_GetData() or VN_Cirrus3DHandler_GetDataReal32() function
  * \retval VN_eERR_NoError if success
@@ -495,6 +532,7 @@ static inline VN_tERR_Code VN_Cirrus3DHandler_SetDataReal32Value(const VN_Cirrus
 
 /** @ingroup Config
  * \brief This function is used to get the data value
+ *  Available only for Cirrus version 3.0.0 and higher. 
  * \param[in] pCirrus3DHandler : Data previously initialized with the VN_Cirrus3DHandler_initialize() function
  * \param[in,out] pDataString  : Struct contain the new value of the data. The structure was initialized by calling VN_Cirrus3DHandler_GetData() or VN_Cirrus3DHandler_GetDataString() function
  * \retval VN_eERR_NoError if success
