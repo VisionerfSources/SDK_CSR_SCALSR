@@ -22,3 +22,7 @@ CHANGE: in VN_SaveXYZI8CloudAsDepthMapBmp, the color indicating no valid point c
         Multiple code improvement changes (removal of mallocs, better use of timeouts when receiving...)
 REMOVE: VN_ExecuteSCAN_CameraCOP_XYZRGB
 
+Version 4.999.6
+The new features will be compatible with version 4.999.6 of the Cirrus3D App 
+FIXED: in VN_SaveXYZI8CloudAsPcdFile, luminance always equal to 0
+ADDED: new scan: VN_ExecuteSCAN_DepthMap function
