@@ -6,6 +6,7 @@
  *  16/02/2024: CHANGED: remove CirrusCom_ReceiveCommandWithSize function... P.H
  *  16/05/2024: NEW: new function VN_Cirrus3DHandler_getHeaderVersion
  *                                CirrusCom_setTimeout...................... P.H
+ *  05/06/2024: FIX: error timeout in CirrusCom_setTimeout for win version.. P.H
  *------------------------------------------------------------------------------
  */
 
@@ -130,7 +131,7 @@ VN_tERR_Code CirrusCom_setTimeout(VN_SOCKET sock,
                                   VN_INT32 timeout)
 {
 #ifdef WIN32
-    int timeout=30000;
+	timeout=timeout*1000;
     setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout,sizeof(timeout));
 #else
     struct timeval tv;
