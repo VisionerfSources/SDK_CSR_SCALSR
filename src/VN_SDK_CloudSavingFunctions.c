@@ -17,6 +17,8 @@
  *  24/08/2024: CHANGE: in VN_SaveXYZI8CloudAsDepthMapBmp, the color indicating
  *                  no valid point changed from black to white (to better see
  *                  the limits of the image)................................ F.R
+ *  05/07/2024: FIXED: in VN_SaveXYZI8CloudAsPcdFile,
+ *              luminance always equal to 0................................. P.H
  *------------------------------------------------------------------------------
  */
 
@@ -219,7 +221,6 @@ VN_tERR_Code VN_SaveXYZI8CloudAsPcdFile(VN_Point_XYZI8 *pCloud_XYZI8,
         VN_Point_XYZI8 point = pCloud_XYZI8[pt];
         //Compute rgb value corresponding with i luminance value :
         VN_UINT32 I = (VN_UINT32) point.i;//first convert from uint8 to uint32 so that the bitshift can work correctly
-        I = I>>8;//to simplify conversion to rgb, only use the 8 MSB of the luminance...
         VN_UINT32 rgb = 0xff000000 | (I<<16) | (I<<8) | (I);
 
         //write the line corresponding to the 3d point

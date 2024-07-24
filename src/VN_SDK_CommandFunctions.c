@@ -23,6 +23,7 @@
  *                 VN_ExecuteSCAN_CameraCOP_XYZI8_sampling_s................ P.H
  * 04/06/2024 CHANGED Compatibility of different versions CSA<->SDK: Improved
  *   error handling......................................................... P.H
+ * 24/07/2024 NEW VN_ExecuteSCAN_DepthMap function.......................... P.H
  *-------------------------------------------------------------------------------
  */
 
@@ -1498,6 +1499,24 @@ VN_tERR_Code VN_ExecuteSCAN_CameraCOP_XYZI8_sampling(const char *pIpAddress,
     return VN_eERR_NoError;
 }
 
+/** @ingroup CloudOfPoint
+ * \brief request the Cirrus3D to scan and get the scan result as matrix of XYZI points
+ *  The points are organized in a structured cloud, sorted by their projection on
+ *   a virtual camera centered on the Cirrus. The matrix size (number of rows & columns)
+ *   vary depending on the selected density, the selected ROI, and the Cirrus calibration.
+ *  The scan result is transfered during the scan instead of after to minize the
+ *   total time needed for the operation.
+ *  In this format the empty elements of the matrix have NaN coordinates.
+ *
+ * Function available for device version greater than or equal to 2. (CirrusSensor version 3.1.0 and higher)
+ * \param[in] IPAddress         : IP address of the Cirrus3D
+ * \param[in] MaxCloudSize      : Max number of points that can be stored in the cloud of points buffer
+ * \param[out] pCloud_XYZI8     : pointer to a buffer able to store the resulting cloud of points
+ * \param[out] pMatrixColumns   : Will contain the number of columns in the matrix
+ * \param[out] pMatrixRows      : Will contain the number of rows in the matrix
+ * \retval VN_eERR_NoError if success
+ * \retval Error code otherwise
+ */
 VN_tERR_Code VN_ExecuteSCAN_CameraCOP_MiddleCam2_XYZI(const char *pIpAddress,
                                                      const int MaxCloudSize,
                                                      VN_Point_XYZI8 *pCloud_XYZI8,
@@ -1650,6 +1669,248 @@ VN_tERR_Code VN_ExecuteSCAN_CameraCOP_MiddleCam2_XYZI(const char *pIpAddress,
                     return VN_eERR_SocketIncompleteCom;
                 }
             }            
+            //also update matrix size
+            *pMatrixColumns=columnCount;
+            *pMatrixRows=rowCount;
+        }
+    }
+
+    //if reached here : command successful, close VN_SOCKET properly
+    err=CirrusCom_End_connection(sock);
+    if (err!=VN_eERR_NoError)
+        return err;
+
+    printf("SCAN command successfull ; a matrix cloud of size %d x %d of XYZi points was received.\n",*pMatrixRows,*pMatrixColumns);
+
+    return VN_eERR_NoError;
+}
+
+/** @ingroup CloudOfPoint
+ * \brief request the Cirrus3D to scan and get the scan result as rectified image
+ *  The "Rectified" format is a format where only the z coordinate is transferred, and 'Rectified',
+ *  meaning that the points are sorted in a grid with a fixed interval. The coordinates are expressed as 16-bits unsigned.
+ *  Presented differently, this format is a depth map: an image built of 16-bits pixel,
+ *  where the darkest pixels correspond to points closer to the Cirrus. The 3d coordinates x,y,z of the 3d points can
+ *  then be extracted from the u,v pixel coordinates and their corresponding pixVal :
+ *       x = x_scale * u + x_offset
+ *       y = y_scale * v + y_offset
+ *       z = z_scale * pixVal + z_offset
+ *  With, in this case, x_scale = y_scale.
+ *  Invalid pixels (the elements of the rectified image that do not contain valid data) are set to a user-selected value (generally 0 or 65535).
+ *  This format was designed to be compatible with a wide variety of applications, including those who have yet to expand
+ *  in the "3D processing" territory and are designed for use with 2d images.
+ *  However, this format has some drawbacks :
+ *     - since the x & y coordinates are implicit, there is a loss of accuracy (the raw 3d points are rarely
+ *      generated at the exact center of the pixel)
+ *     - the Cirrus natively generates a denser coverage of 3d points on closer objects than on farther objects.
+ *      In order to minimize the number of "holes" in the RectifiedC image, the image is under-sampled, losing about 20% resolution compared to the CalibratedABC_Grid format.
+ *     - the Cirrus natively  generates 3d points from a perspective view, meaning that if the Cirrus is suspended
+ *      above a bin it is able to (at least partially) scan the sides of the bin, and generates 3d points sharing (roughly)
+ *      the same x,y, coordinates but with a different z. With this RectifiedC format, those points are lost : in case of multiple
+ *      3d points projecting to the same pixel, we only keep the one closest to the Cirrus.
+ *  The resolution of the image (number of lines & columns) vary only depending on the selected scan density ; this is an arbitrary choice
+ *   for easier integration with applications where the image resolution is hard-coded.
+ *
+ * Function available for device version greater than or equal to 2. (CirrusSensor version 5.0.0 and higher)
+ * \param[in] IPAddress         : IP address of the Cirrus3D
+ * \param[in] MaxCloudSize      : Max number of points that can be stored in the cloud of points buffer
+ * \param[out] pCloud_DepthMap  : pointer to a buffer able to store the resulting cloud of points
+ * \param[out] pMatrixColumns   : Will contain the number of columns in the matrix
+ * \param[out] pMatrixRows      : Will contain the number of rows in the matrix
+ * \param[out] pInvalidVal      : Will contain the invalid value
+ * \param[out] pXOffset         : Will contain the XOffset
+ * \param[out] pXScale          : Will contain the XScale
+ * \param[out] pYOffset         : Will contain the YOffset
+ * \param[out] pYScale          : Will contain the YScale
+ * \param[out] pZOffset         : Will contain the ZOffset
+ * \param[out] pZScale          : Will contain the ZScale
+ * \param[out] samplingFactor   : Will contain the sampling factor
+ * \retval VN_eERR_NoError if success
+ * \retval Error code otherwise
+ */
+VN_tERR_Code VN_ExecuteSCAN_DepthMap(const char *pIpAddress,
+                                         const int MaxCloudSize,
+                                         VN_UINT16 *pDepthMap,
+                                         VN_UINT32 *pMatrixColumns,
+                                         VN_UINT32 *pMatrixRows,
+                                         VN_UINT16 *pInvalidVal,
+                                         float *pXOffset, float *pXScale,
+                                         float *pYOffset, float *pYScale,
+                                         float *pZOffset, float *pZScale,
+                                         float samplingFactor)
+{
+    VN_SOCKET sock;
+    VN_tERR_Code err=VN_eERR_NoError;
+    char ScanCommand[20];
+
+    //Open a VN_SOCKET
+    err=CirrusCom_connect(pIpAddress,&sock);
+    if (err!=VN_eERR_NoError)
+        return err;
+
+    //send the SCAN command to the Cirrus
+    sprintf(ScanCommand, "SCAN %d,%d,%d.%d%c%c",1,8,//second parameter 8 to request depthmap
+            (int)round(samplingFactor-0.5),(int)(100*samplingFactor - 100*(int)round(samplingFactor-0.5)),
+            13,10);
+
+    err=CirrusCom_SendCommand(sock, ScanCommand);
+    if(err!=VN_eERR_NoError)
+    {
+        //end the communication properly even if the commands fails
+        CirrusCom_End_connection(sock);
+        return err;
+    }
+
+    //get and interpret the response from the Cirrus
+    {
+        int nbBytesRead;
+        char  command[5];
+
+        //The expected response from the Cirrus is the command code followed by the deptmap
+        nbBytesRead=recv(sock, command, 4, 0);
+        if(nbBytesRead == -1)
+        {//a return value of -1 indicate a VN_SOCKET error
+            printf("VN_SOCKET error when trying to get scan result fom SCAN_Depthmap command\n");
+            //end the communication properly even if the commands fails
+            CirrusCom_End_connection(sock);
+            return VN_eERR_SocketRecvError;
+        }
+        else if (nbBytesRead != 4)
+        {//we are supposed to read exactly 4 bytes here
+            printf("Recv error when trying to get scan result\n");
+            CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
+            return VN_eERR_SocketIncompleteCom;
+        }
+
+        if(command[0]!='S' || command[1]!='C' || command[2]!='A' || command[3]!='N')
+        {
+            if(command[0]=='E' && command[1]=='R' && command[2]=='R')
+            {
+                printf("Recv: ERR -> Unknown command");
+                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
+                return VN_eERR_UnknownCommand;
+            }
+            else
+            {
+                command[4]='\0';
+                printf("Recv: %s -> communication error", command);
+                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
+                return VN_eERR_Failure;
+            }
+        }
+        else
+        {
+            int header[7+5];
+            int cloudBytesSize, rowCount, columnCount,status, nbPoints;
+
+            //read the header of the response
+            nbBytesRead=recv(sock, (char*)header, sizeof(header), 0);
+            if(nbBytesRead == -1)
+            {//a return value of -1 indicate a VN_SOCKET error
+                printf("VN_SOCKET error when trying to get depthmap scan header\n");
+                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
+                return VN_eERR_SocketRecvError;
+            }
+            //in case of incomplete read of the header (possible here twice because rowcount & columnCount are sent in a separate packet from the rest of the header...)
+            for(int k=0 ; k<20 ; k++)
+            {
+                if (nbBytesRead < (int)sizeof(header))
+                    nbBytesRead += recv(sock, ((char*)header) + nbBytesRead , sizeof(header)-nbBytesRead, 0);
+            }
+
+            if (nbBytesRead!=sizeof(header))
+            {//incomplete com
+                printf("Recv error when trying to get depthmap header\n");
+                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
+                return VN_eERR_SocketIncompleteCom;
+            }
+            status=header[0];
+            if (status!=VN_eERR_NoError)
+            {//incomplete com
+                printf("status error returned %d\n", status);
+                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
+                return status;
+            }
+
+            cloudBytesSize=header[1];
+            nbPoints=header[2];
+
+            *pInvalidVal = (VN_UINT16)header[3];
+            *pXOffset = *(float*)(&header[4]);
+            *pXScale = *(float*)(&header[5]);
+            *pYOffset = *(float*)(&header[6]);
+            *pYScale = *(float*)(&header[7]);
+            *pZOffset = *(float*)(&header[8]);
+            *pZScale = *(float*)(&header[9]);
+
+            rowCount=header[10];
+            columnCount=header[11];
+
+            //check that there is no incoherency in the cloud of points size
+            const int cPointSize=2;//each point is 2-bytes pixel
+            int expectedCloudSize=rowCount*columnCount*cPointSize;//in this format the cloud is transfered as a matrix,
+
+            //with each case of the matrix containing either a point or nan
+            if (cloudBytesSize != expectedCloudSize)
+            {
+                printf("ERROR : Scan result header is incoherent : for a %d x %d depthmap image we expected a buffer size of %d bytes, not %d\n",
+                       rowCount,columnCount,expectedCloudSize,cloudBytesSize);
+                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
+                return VN_eERR_BadHeader;
+            }
+
+            //check that the buffer passed as a parameter is big enough for this cloud of points
+            if (rowCount*columnCount > MaxCloudSize)
+            {
+                printf("ERROR : cloud of points buffer is insufficient to accept the incoming points (buffer size %d points, cloud matrix size %d points)\n",
+                       MaxCloudSize,rowCount*columnCount);
+                CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
+                return VN_eERR_InsufficientMemory;
+            }
+
+            printf("Receiving a depthmap image of size %d rows & %d columns\n",rowCount,columnCount);
+
+//read the cloud of points
+//Note : because of the size of the data to read, we might need several calls to recv to properly receive all the data
+//Note2 : this point data structure is aligned on four bytes, so we can receive it directly
+
+//define a timeout on the VN_SOCKET, to make sure we can't get stuck in an infinite loop
+#ifdef WIN32
+            int timeout=30000;
+            setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout,sizeof(timeout));
+#else
+            struct timeval tv;
+            tv.tv_sec=10;  /* 10 Secs Timeout */
+            tv.tv_usec=1;  // Not init'ing this can cause strange errors
+
+            setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv,sizeof(struct timeval));
+#endif
+            int bytesRead=0;
+            char *pCloud=(char*)pDepthMap;
+            while (bytesRead < cloudBytesSize)
+            {
+                int rVal=recv(sock, pCloud, cloudBytesSize-bytesRead, 0);
+                if (rVal==-1)
+                {//a return value of -1 indicate a VN_SOCKET error
+                    printf("VN_SOCKET error when trying to get scan data (received %d of %d bytes expected)\n",bytesRead,cloudBytesSize);
+                    CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
+                    return VN_eERR_SocketRecvError;
+                }
+
+                if (rVal != 0)
+                {
+                    bytesRead += rVal;
+                    pCloud += rVal;
+                }
+                else
+                {
+                    //with the large timeout defined, not receiving any bytes here means
+                    // a com failure...
+                    printf("Timeout error when trying to get scan data (received %d of %d bytes expected)\n",bytesRead,cloudBytesSize);
+                    CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
+                    return VN_eERR_SocketIncompleteCom;
+                }
+            }
             //also update matrix size
             *pMatrixColumns=columnCount;
             *pMatrixRows=rowCount;
@@ -1857,6 +2118,11 @@ VN_tERR_Code VN_Cirrus3DHandler_Initialize(char* pIpAddress,
             return err;
     }
 
+    err=CirrusCom_setTimeout(sock,
+                             VN_cSocketTimeout);
+    if (err!=VN_eERR_NoError)
+        return err;
+
     err=VN_COM_HeaderCmd_send(sock,
                               pCirrus3DHandler->ProtocolVersion,
                               pCirrus3DHandler->HeaderVersion,
@@ -1952,6 +2218,11 @@ VN_tERR_Code VN_Cirrus3DHandler_Get(char* pIpAddress,
     if (err!=VN_eERR_NoError)
         return err;
 
+    err=CirrusCom_setTimeout(sock,
+                             VN_cSmallSocketTimeout);
+    if (err!=VN_eERR_NoError)
+        return err;
+
     err=VN_COM_HeaderCmd_send(sock,
                               pCirrus3DHandler->ProtocolVersion,
                               pCirrus3DHandler->HeaderVersion,
@@ -2032,6 +2303,11 @@ VN_tERR_Code VN_Cirrus3DHandler_ForceVersionDevice(VN_Cirrus3DHandler *pCirrus3D
     if (err!=VN_eERR_NoError)
         return err;
 
+    err=CirrusCom_setTimeout(sock,
+                             VN_cSmallSocketTimeout);
+    if (err!=VN_eERR_NoError)
+        return err;
+
     err=VN_COM_HeaderCmd_send(sock,
                                 pCirrus3DHandler->ProtocolVersion,
                                 pCirrus3DHandler->HeaderVersion,
@@ -2109,6 +2385,11 @@ VN_tERR_Code VN_Cirrus3DHandler_ResetData(VN_Cirrus3DHandler *pCirrus3DHandler)
     if (err!=VN_eERR_NoError)
         return err;
 
+    err=CirrusCom_setTimeout(sock,
+                             VN_cSmallSocketTimeout);
+    if (err!=VN_eERR_NoError)
+        return err;
+
     err=VN_COM_HeaderCmd_send(sock,
                                 pCirrus3DHandler->ProtocolVersion,
                                 pCirrus3DHandler->HeaderVersion,
@@ -2169,6 +2450,11 @@ VN_tERR_Code VN_Cirrus3DHandler_GetDataRootList(const VN_Cirrus3DHandler *pCirru
     err=CirrusCom_connectToPort(pCirrus3DHandler->IPAddress,
                                   cPortConfiguration,
                                   &sock);
+    if (err!=VN_eERR_NoError)
+        return err;
+
+    err=CirrusCom_setTimeout(sock,
+                             VN_cSmallSocketTimeout);
     if (err!=VN_eERR_NoError)
         return err;
 
@@ -2257,6 +2543,11 @@ VN_tERR_Code VN_Cirrus3DHandler_GetData(const VN_Cirrus3DHandler *pCirrus3DHandl
     err=CirrusCom_connectToPort(pCirrus3DHandler->IPAddress,
                                   cPortConfiguration,
                                   &sock);
+    if (err!=VN_eERR_NoError)
+        return err;
+
+    err=CirrusCom_setTimeout(sock,
+                             VN_cSmallSocketTimeout);
     if (err!=VN_eERR_NoError)
         return err;
 
@@ -2364,6 +2655,11 @@ VN_tERR_Code VN_Cirrus3DHandler_GetDataValue(const VN_Cirrus3DHandler *pCirrus3D
     if (err!=VN_eERR_NoError)
         return err;
 
+    err=CirrusCom_setTimeout(sock,
+                             VN_cSmallSocketTimeout);
+    if (err!=VN_eERR_NoError)
+        return err;
+
     err=VN_COM_HeaderCmd_send(sock,
                                 pCirrus3DHandler->ProtocolVersion,
                                 pCirrus3DHandler->HeaderVersion,
@@ -2466,6 +2762,11 @@ VN_tERR_Code VN_Cirrus3DHandler_SetDataValue(const VN_Cirrus3DHandler *pCirrus3D
     err = CirrusCom_connectToPort(pCirrus3DHandler->IPAddress,
                                   cPortConfiguration,
                                   &sock);
+    if (err!=VN_eERR_NoError)
+        return err;
+
+    err=CirrusCom_setTimeout(sock,
+                             VN_cSmallSocketTimeout);
     if (err!=VN_eERR_NoError)
         return err;
 

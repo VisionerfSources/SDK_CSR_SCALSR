@@ -3,6 +3,7 @@
  * 16/05/2024 ADDED: VN_cSocketTimeout enum................................. P.H
  * 16/05/2024 CHANGED: VN_Point_XYZI8 is declared without padding
  *            CHANGED: VN_Point_XYZI16 is declared without padding.......... P.H
+ * 04/07/2024 ADDED: VN_cSmallSocketTimeout................................. P.H
  *------------------------------------------------------------------------------
  */
 
@@ -73,6 +74,11 @@ typedef struct in_addr IN_ADDR;
  */
 #define VN_cSocketTimeout 20
 
+/** @ingroup GeneralConst
+ *  @def VN_cSmallSocketTimeout
+ *  @brief VN_Socket timeout value of socket VN_Socket used by recv function. Value in second.
+ */
+#define VN_cSmallSocketTimeout 2
 /*******************************************************************************************/
 
 /********************************** COMMUNICATION GLOBALS **********************************/

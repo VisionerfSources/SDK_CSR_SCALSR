@@ -16,6 +16,8 @@
  * 17/05/2024 NEW function VN_ExecuteSCAN_CameraCOP_MiddleCam2_XYZI......... F.R
  * 24/05/2024 NEW: VN_ExecuteSCAN_CameraCOP_XYZI8_s
  *                 VN_ExecuteSCAN_CameraCOP_XYZI8_sampling_s................ P.H
+ * 07/06/2024 COMMENT: Adding comment in Header function.................... P.H
+ * 24/07/2024 NEW VN_ExecuteSCAN_DepthMap function.......................... P.H
  *------------------------------------------------------------------------------
  */
 
@@ -256,6 +258,60 @@ VN_tERR_Code VN_ExecuteSCAN_CameraCOP_MiddleCam2_XYZI(const char *pIpAddress,
                                                       int *pMatrixColumns,
                                                       int *pMatrixRows);
 
+
+/** @ingroup CloudOfPoint
+ * \brief request the Cirrus3D to scan and get the scan result as rectified image
+ *  The "Rectified" format is a format where only the z coordinate is transferred, and 'Rectified',
+ *  meaning that the points are sorted in a grid with a fixed interval. The coordinates are expressed as 16-bits unsigned.
+ *  Presented differently, this format is a depth map: an image built of 16-bits pixel,
+ *  where the darkest pixels correspond to points closer to the Cirrus. The 3d coordinates x,y,z of the 3d points can
+ *  then be extracted from the u,v pixel coordinates and their corresponding pixVal :
+ *       x = x_scale * u + x_offset
+ *       y = y_scale * v + y_offset
+ *       z = z_scale * pixVal + z_offset
+ *  With, in this case, x_scale = y_scale.
+ *  Invalid pixels (the elements of the rectified image that do not contain valid data) are set to a user-selected value (generally 0 or 65535).
+ *  This format was designed to be compatible with a wide variety of applications, including those who have yet to expand
+ *  in the "3D processing" territory and are designed for use with 2d images.
+ *  However, this format has some drawbacks :
+ *     - since the x & y coordinates are implicit, there is a loss of accuracy (the raw 3d points are rarely
+ *      generated at the exact center of the pixel)
+ *     - the Cirrus natively generates a denser coverage of 3d points on closer objects than on farther objects.
+ *      In order to minimize the number of "holes" in the RectifiedC image, the image is under-sampled, losing about 20% resolution compared to the CalibratedABC_Grid format.
+ *     - the Cirrus natively  generates 3d points from a perspective view, meaning that if the Cirrus is suspended
+ *      above a bin it is able to (at least partially) scan the sides of the bin, and generates 3d points sharing (roughly)
+ *      the same x,y, coordinates but with a different z. With this RectifiedC format, those points are lost : in case of multiple
+ *      3d points projecting to the same pixel, we only keep the one closest to the Cirrus.
+ *  The resolution of the image (number of lines & columns) vary only depending on the selected scan density ; this is an arbitrary choice
+ *   for easier integration with applications where the image resolution is hard-coded.
+ *
+ * Function available for device version greater than or equal to 2. (CirrusSensor version 5.0.0 and higher)
+ * \param[in] IPAddress         : IP address of the Cirrus3D
+ * \param[in] MaxCloudSize      : Max number of points that can be stored in the cloud of points buffer
+ * \param[out] pCloud_DepthMap  : pointer to a buffer able to store the resulting cloud of points
+ * \param[out] pMatrixColumns   : Will contain the number of columns in the matrix
+ * \param[out] pMatrixRows      : Will contain the number of rows in the matrix
+ * \param[out] pInvalidVal      : Will contain the invalid value
+ * \param[out] pXOffset         : Will contain the XOffset
+ * \param[out] pXScale          : Will contain the XScale
+ * \param[out] pYOffset         : Will contain the YOffset
+ * \param[out] pYScale          : Will contain the YScale
+ * \param[out] pZOffset         : Will contain the ZOffset
+ * \param[out] pZScale          : Will contain the ZScale
+ * \param[out] samplingFactor   : Will contain the sampling factor
+ * \retval VN_eERR_NoError if success
+ * \retval Error code otherwise
+ */
+VN_tERR_Code VN_ExecuteSCAN_DepthMap(const char *pIpAddress,
+                                         const int MaxCloudSize,
+                                         VN_UINT16 *pDepthMap,
+                                         VN_UINT32 *pMatrixColumns,
+                                         VN_UINT32 *pMatrixRows,
+                                         VN_UINT16 *pInvalidVal,
+                                         float *pXOffset, float *pXScale,
+                                         float *pYOffset, float *pYScale,
+                                         float *pZOffset, float *pZScale,
+                                         float samplingFactor);
 
 /** @ingroup CloudOfPoint
  * \brief Read header receive on the socket sock after a command SCAN Matrix_XYZRGB
