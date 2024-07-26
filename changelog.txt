@@ -1,0 +1,28 @@
+Version 3.999.1
+The new features will be compatible with version 3.999.1 of the Cirrus3D App (DeviceVersion=2)
+
+CHANGE name: VN_SaveCloudAsBinFile-> VN_SaveXYZCloudAsBinFile
+             VN_SaveCloudAsTxtFile-> VN_SaveXYZCloudAsTxtFile
+             VN_SaveAsPcd->VN_SaveXYZI16CloudAsPcdFile
+             VN_SaveAsDepthMapBmp->VN_SaveXYZI8CloudAsDepthMapBmp
+             VN_SaveMatrixCloudAsPCD->VN_SaveXYZI8CloudAsPcdFile
+             VN_SaveMatrixXYZRGBAsDepthMapBmp->VN_SaveXYZRGBCloudAsPcdFile
+NEW : VN_SaveXYZI8CloudAsDepthMapBmp function
+      VN_SaveXYZI8CloudAsLumBmp
+      VN_SaveXYZRGBCloudAsDepthMapBmp
+      VN_SaveXYZRGBCloudAsLumBmp
+      VN_ExecuteSCAN_readHeader
+      VN_ExecuteSCAN_CameraCOP_XYZI8
+      VN_ExecuteSCAN_CameraCOP_XYZI8_sampling
+      VN_ExecuteSCAN_Matrix_XYZRGB_readHeader
+      VN_ExecuteSCAN_CameraCOP_MiddleCam2_XYZI
+      VN_ExecuteSCAN_CameraCOP_XYZI8_s
+      VN_ExecuteSCAN_CameraCOP_XYZI8_sampling_s
+CHANGE: in VN_SaveXYZI8CloudAsDepthMapBmp, the color indicating no valid point changed from black to white (to better see the limits of the image)
+        Multiple code improvement changes (removal of mallocs, better use of timeouts when receiving...)
+REMOVE: VN_ExecuteSCAN_CameraCOP_XYZRGB
+
+Version 4.999.6
+The new features will be compatible with version 4.999.6 of the Cirrus3D App 
+FIXED: in VN_SaveXYZI8CloudAsPcdFile, luminance always equal to 0
+ADDED: new scan: VN_ExecuteSCAN_DepthMap function
