@@ -2873,7 +2873,7 @@ VN_tERR_Code VN_GetCirrus3DAvailable(VN_INT32 *pNbCirrus3DAvailable, char ipCirr
     const int MAXBUF=50;
     int sock, status, sinlen;
     int option=1;
-    char Recvbuffer[MAXBUF];
+    char Recvbuffer[50];
     const int buflen=MAXBUF;
     const int SOCKETERROR=-1;
     /* Port for the protocol UDP */

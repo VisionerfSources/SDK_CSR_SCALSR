@@ -5,12 +5,12 @@ CONFIG -= qt
 
 win32 {
 LIBS +=  -lws2_32
+LIBS += -L../../lib/Win/ -lVnCirrus3DLib
 }
 
+unix {
 LIBS += -L../../lib/Ubuntu/ -lVnCirrus3DLib
-#INCLUDEPATH =/home/vn/VNroot/VNSource/App/CirrusSDK/VN_Cirrus3D_Lib/Helper
-
-#PRE_TARGETDEPS += /home/vn/VNroot/VNSource/App/CirrusSDK/build-VN_Cirrus3D_Lib-Desktop_Qt_5_15_2_GCC_64bit-Release/libVnCirrus3DLib.a
+}
 
 INCLUDEPATH +=../../lib/API/
 

@@ -25,6 +25,9 @@ typedef int VN_SOCKET;
 #ifdef WIN32
 #include "winsock.h"
 #define closeVNSocket(s) closesocket(s)
+#elif  WIN64
+#include "winsock.h"
+#define closeVNSocket(s) closesocket(s)
 #else
 #include <sys/socket.h>
 #include <netinet/in.h>

@@ -9,15 +9,15 @@ include_directories(../../src)
 
 add_executable(VN_Cirrus3D_ExempleCPlusPlus main.cpp
     Cirrus3D.h Cirrus3D.cpp
-    ../../src/VN_SDK_CloudSavingFunctions.c ../../src/VN_SDK_CloudSavingFunctions.h
-    ../../src/VN_SDK_CommandFunctions.c ../../src/VN_SDK_CommandFunctions.h
-    ../../src/VN_SDK_CommunicationFunctions.c ../../src/VN_SDK_CommunicationFunctions.h
-    ../../src/VN_SDK_Constant.h
+    ../../Source/VN_SDK_CloudSavingFunctions.c ../../Source/VN_SDK_CloudSavingFunctions.h
+    ../../Source/VN_SDK_CommandFunctions.c ../../Source/VN_SDK_CommandFunctions.h
+    ../../Source/VN_SDK_CommunicationFunctions.c ../../Source/VN_SDK_CommunicationFunctions.h
+    ../../Source/VN_SDK_Constant.h
     ../../lib/API/VN_Cirrus3D_DataId.h
 )
 
 
-if (win32)
+if (WIN32)
     target_link_libraries(VN_Cirrus3D_ExempleCPlusPlus wsock32 ws2_32)
 endif()
 
