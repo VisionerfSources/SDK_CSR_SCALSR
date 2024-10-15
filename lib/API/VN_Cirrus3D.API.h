@@ -25,6 +25,7 @@
  *                      VN_SaveAsPcd->VN_SaveXYZI16CloudAsPcdFile
  *                      VN_SaveAsDepthMapBmp->VN_SaveXYZI8CloudAsDepthMapBmp P.H
  * 24/07/2024 NEW VN_ExecuteSCAN_DepthMap function.......................... P.H
+ * 15/10/2024 FIXED: alignment modification of _VN_Point_XYZI8 structure.... P.H
  *------------------------------------------------------------------------------
  */
 
@@ -159,6 +160,7 @@ typedef struct _VN_Point_XYZI16
   * @param z: coordinate z (32-bit in single-precision IEEE-754 binary floating-point format)
   * @param i: intensity (8-bit unsigned integer)
   */
+#pragma pack(push,1)
 typedef struct _VN_Point_XYZI8
 {
     VN_REAL32 x;
@@ -166,6 +168,7 @@ typedef struct _VN_Point_XYZI8
     VN_REAL32 z;
     VN_UINT8 i;
 }VN_Point_XYZI8;
+#pragma pack(pop)
 
 /** @ingroup CloudOfPoint
   * @struct VN_Point_XYZRGB
