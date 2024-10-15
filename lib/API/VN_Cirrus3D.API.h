@@ -1027,4 +1027,3 @@ static inline VN_tERR_Code VN_Cirrus3DHandler_SetDataStringValue(const VN_Cirrus
 VN_tERR_Code VN_GetCirrus3DAvailable(VN_INT32 *pNbCirrus3DAvailable, char ipCirrus3DAvailable[VN_cMaxNbCirrus3D][VN_cSizeDataString]);
 
 #endif //VN_CIRRUS3D_API_H
-
