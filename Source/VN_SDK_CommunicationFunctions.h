@@ -6,10 +6,13 @@
  *  16/02/2024: CHANGED: remove CirrusCom_ReceiveCommandWithSize function... P.H
  *  16/05/2024: NEW: new function VN_Cirrus3DHandler_getHeaderVersion
  *                                CirrusCom_setTimeout...................... P.H
+ *  28/11/2024: NEW: new function CirrusCom_Receive......................... P.H
  *------------------------------------------------------------------------------
  */
 
 #include "VN_SDK_Constant.h"
+#include <errno.h>
+
 
 /***************************** API FUNCTIONS ******************************/
  /** @ingroup General
@@ -140,5 +143,29 @@ VN_tERR_Code CirrusCom_SendAckCommandWithSize(VN_SOCKET sock, const char *buffer
  * \retval error code otherwise
  */
 VN_tERR_Code CirrusCom_ReceiveBufferofSizeN(VN_SOCKET sock, char *buffer, int sizeBuffer);
+
+
+/**
+ * \brief CirrusCom_Receive
+ *
+ * \param[in] Sock      : Cirrus connection VN_SOCKET.
+ * \param[in] pBuffer   : Cirrus command.
+ * \param[in] bufferLen : buffer max size to read.
+ * \param[in] flags     : recv command flags.
+ * \retval number of bytes received if success
+ * \retval -1 if an error occurred
+ */
+static inline int CirrusCom_Receive(VN_SOCKET socket, void *pBuffer, size_t bufferLen, int flags)
+{
+#ifdef _WIN32
+    return recv(socket,reinterpret_cast<char*>(pbuf),bytesNb,flags);
+#else
+    int rval=0;
+    do{
+        rval = recv(socket,pBuffer,bufferLen,flags);
+    }while (rval==-1 && errno==EINTR);//i.e. if recv interrupted by "system call interrupt" resume automatically
+    return rval;
+#endif
+}
 
 #endif // VN_SDK_COMMUNICATIONFUNCTIONS_H
