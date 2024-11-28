@@ -7,6 +7,7 @@
  *  16/05/2024: NEW: new function VN_Cirrus3DHandler_getHeaderVersion
  *                                CirrusCom_setTimeout...................... P.H
  *  05/06/2024: FIX: error timeout in CirrusCom_setTimeout for win version.. P.H
+ *  28/11/2024: CHANGED: added errno display error.......................... P.H
  *------------------------------------------------------------------------------
  */
 
@@ -272,14 +273,14 @@ VN_tERR_Code CirrusCom_SendCommand(VN_SOCKET sock, const char *buffer)
 {
     if(send(sock, buffer, strlen(buffer), 0) == -1)
     {
-        printf("Error in CirrusCom_SendCommand when trying to send command %s\n",buffer);
+        printf( "Error %s (%d)in CirrusCom_SendCommand when trying to send command %s\n",strerror(errno),errno,buffer);
         return VN_eERR_SocketSendError;
     }
     //each command is supposed to end with CR
     //    const char CR[2]="\r\n";
     //    if(send(sock, CR, strlen(CR), 0) == -1)
     //    {
-    //        printf("Error in CirrusCom_SendCommand when trying to send trailing CR\n");
+    //        printf( "Error %s (%d)in CirrusCom_SendCommand when trying to send trailing CR\n");
     //        return VN_eERR_SocketSendError;
     //    }
     return VN_eERR_NoError;
@@ -298,7 +299,7 @@ VN_tERR_Code CirrusCom_SendCommandWithSize(VN_SOCKET sock, const char *buffer, i
 {
     if(send(sock, buffer, sizeBuffer, 0) == -1)
     {
-        printf("Error in CirrusCom_SendCommand when trying to send command %s\n",buffer);
+        printf("Error %s (%d) in CirrusCom_SendCommand when trying to send command %s\n",strerror(errno),errno,buffer);
         return VN_eERR_SocketSendError;
     }
     //each command is supposed to end with CR
@@ -324,7 +325,7 @@ VN_tERR_Code CirrusCom_SendAckCommandWithSize(VN_SOCKET sock, const char *buffer
 {
     if(send(sock, buffer, sizeBuffer, 0) == -1)
     {
-        printf("Error in CirrusCom_SendCommand when trying to send command %s\n",buffer);
+        printf("Error %s (%d) in CirrusCom_SendCommand when trying to send command %s\n",strerror(errno),errno,buffer);
         return VN_eERR_SocketSendError;
     }
 
@@ -346,10 +347,10 @@ VN_tERR_Code CirrusCom_ReceiveBufferofSizeN(VN_SOCKET sock, char *buffer, int si
     while (bytesRead < sizeBuffer)
     {
         //The expected response from the Cirrus is the command code followed by a binary status then the cloud of points
-        int rVal = recv(sock, buffer, sizeBuffer-bytesRead, 0);
+        int rVal = CirrusCom_Receive(sock, buffer, sizeBuffer-bytesRead, 0);
         if (rVal==-1)
         {//a return value of -1 indicate a VN_SOCKET error
-            printf("Error in CirrusCom_ReceiveBufferofSizeN command : VN_SOCKET error when receiving command result\n");
+            printf( "Error %s (%d)in CirrusCom_ReceiveBufferofSizeN command : VN_SOCKET error when receiving command result\n",strerror(errno),errno);
             CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
             return VN_eERR_SocketRecvError;
         }
@@ -363,7 +364,7 @@ VN_tERR_Code CirrusCom_ReceiveBufferofSizeN(VN_SOCKET sock, char *buffer, int si
         {
             //with the large timeout defined, not receiving any bytes here means
             // a com failure...
-            printf("Error in CirrusCom_ReceiveBufferofSizeN function : incomplete com\n");
+            printf( "Error %s (%d)in CirrusCom_ReceiveBufferofSizeN function : incomplete com\n",strerror(errno),errno);
             CirrusCom_End_connection(sock);//end the communication properly even if the commands fails
             return VN_eERR_SocketIncompleteCom;
         }

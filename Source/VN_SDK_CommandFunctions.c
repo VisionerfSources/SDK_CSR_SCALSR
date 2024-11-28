@@ -24,6 +24,7 @@
  * 04/06/2024 CHANGED Compatibility of different versions CSA<->SDK: Improved
  *   error handling......................................................... P.H
  * 24/07/2024 NEW VN_ExecuteSCAN_DepthMap function.......................... P.H
+ * 28/11/2024 CHANGED: use CirrusCom_Receive function instead of recv....... P.H
  *-------------------------------------------------------------------------------
  */
 
@@ -74,7 +75,7 @@ VN_tERR_Code VN_ExecuteCommandSTS(const char *pIPAddress,
 
         //The expected response from the Cirrus is the command code followed by the status
         //Note : there can be some loading time depending on the selected configuration, max 500ms...
-        nbBytesRead=recv(sock, command, 3, 0);
+        nbBytesRead=CirrusCom_Receive(sock, command, 3, 0);
         if(nbBytesRead == -1)
         {//a return value of -1 indicate a VN_SOCKET error
             printf("VN_SOCKET error during STS command recv()\n");
@@ -111,7 +112,7 @@ VN_tERR_Code VN_ExecuteCommandSTS(const char *pIPAddress,
             char buffer[1024];
 
             //read the rest of the response : all the data sent by the Cirrus until it closes the VN_SOCKET
-            nbBytesRead=recv(sock, (char*)buffer, sizeof(buffer), 0);
+            nbBytesRead=CirrusCom_Receive(sock, (char*)buffer, sizeof(buffer), 0);
             if(nbBytesRead == -1)
             {//a return value of -1 indicate a VN_SOCKET error
                 printf("Error in STS command : VN_SOCKET error when receiving command result\n");
@@ -185,7 +186,7 @@ VN_tERR_Code VN_ExecuteCommandINFO(const char *pIpAddress,
         char  command[5];
 
         //The expected response from the Cirrus is the command code followed by the status and the result string
-        nbBytesRead=recv(sock, command, 4, 0);
+        nbBytesRead=CirrusCom_Receive(sock, command, 4, 0);
         if(nbBytesRead == -1)
         {//a return value of -1 indicate a VN_SOCKET error
             printf("VN_SOCKET error during INFO command recv()\n");
@@ -222,7 +223,7 @@ VN_tERR_Code VN_ExecuteCommandINFO(const char *pIpAddress,
             char buffer[1024];
 
             //read the rest of the response : all the data sent by the Cirrus until it closes the VN_SOCKET
-            nbBytesRead=recv(sock, (char*)buffer, sizeof(buffer), 0);
+            nbBytesRead=CirrusCom_Receive(sock, (char*)buffer, sizeof(buffer), 0);
             if(nbBytesRead == -1)
             {//a return value of -1 indicate a VN_SOCKET error
                 printf("Error in INFO command : VN_SOCKET error when receiving command result\n");
@@ -302,7 +303,7 @@ VN_tERR_Code VN_ExecuteCommandRECI(const char *pIpAddress,
 
         //The expected response from the Cirrus is the command code followed by the status
         //Note : there can be some loading time depending on the selected configuration, max 500ms...
-        nbBytesRead=recv(sock, command, 4, 0);
+        nbBytesRead=CirrusCom_Receive(sock, command, 4, 0);
         if(nbBytesRead == -1)
         {//a return value of -1 indicate a VN_SOCKET error
             printf("VN_SOCKET error during RECI command recv()\n");
@@ -339,7 +340,7 @@ VN_tERR_Code VN_ExecuteCommandRECI(const char *pIpAddress,
             char buffer[1024];
 
             //read the rest of the response : all the data sent by the Cirrus until it closes the VN_SOCKET
-            nbBytesRead=recv(sock, (char*)buffer, sizeof(buffer), 0);
+            nbBytesRead=CirrusCom_Receive(sock, (char*)buffer, sizeof(buffer), 0);
             if(nbBytesRead == -1)
             {//a return value of -1 indicate a VN_SOCKET error
                 printf("Error INFO STS command : VN_SOCKET error when receiving command result\n");
@@ -424,7 +425,7 @@ VN_tERR_Code VN_ExecuteSCAN_XYZ(const char *pIpAddress,
    }
 
     //read the header of the response
-    nbBytesRead=recv(sock, (char*)header, sizeof(header), 0);
+    nbBytesRead=CirrusCom_Receive(sock, (char*)header, sizeof(header), 0);
     if(nbBytesRead == -1)
     {//a return value of -1 indicate a VN_SOCKET error
         printf("VN_SOCKET error when trying to read scan header\n");
@@ -434,7 +435,7 @@ VN_tERR_Code VN_ExecuteSCAN_XYZ(const char *pIpAddress,
 
     //in case of incomplete read of the header (possible since status is sent separately from the rest) try again
     if (nbBytesRead < (int)sizeof(header))
-        nbBytesRead += recv(sock, ((char*)header) + nbBytesRead , sizeof(header)-nbBytesRead, 0);
+        nbBytesRead += CirrusCom_Receive(sock, ((char*)header) + nbBytesRead , sizeof(header)-nbBytesRead, 0);
 
     if (nbBytesRead!=sizeof(header))
     {//incomplete com
@@ -479,7 +480,7 @@ VN_tERR_Code VN_ExecuteSCAN_XYZ(const char *pIpAddress,
     int bytesRead=0;
     while (bytesRead < cloudBytesSize)
     {
-        int rVal=recv(sock, pCloud_XYZ, cloudBytesSize-bytesRead, 0);
+        int rVal=CirrusCom_Receive(sock, pCloud_XYZ, cloudBytesSize-bytesRead, 0);
         if (rVal==-1)
         {//a return value of -1 indicate a VN_SOCKET error
             printf("Error in SCAN_XYZ command : VN_SOCKET error when receiving command result\n");
@@ -567,7 +568,7 @@ VN_tERR_Code VN_ExecuteSCAN_XYZI16(const char *pIpAddress, const int MaxCloudSiz
     {
 
         //read the header of the response
-        nbBytesRead=recv(sock, (char*)header, sizeof(header), 0);
+        nbBytesRead=CirrusCom_Receive(sock, (char*)header, sizeof(header), 0);
         if(nbBytesRead == -1)
         {//a return value of -1 indicate a VN_SOCKET error
             printf("VN_SOCKET error when trying to read header\n");
@@ -576,7 +577,7 @@ VN_tERR_Code VN_ExecuteSCAN_XYZI16(const char *pIpAddress, const int MaxCloudSiz
         }
         //in case of incomplete read of the header (possible since status is sent separately from the rest) try again
         if (nbBytesRead < (int)sizeof(header))
-            nbBytesRead += recv(sock, ((char*)header) + nbBytesRead , sizeof(header)-nbBytesRead, 0);
+            nbBytesRead += CirrusCom_Receive(sock, ((char*)header) + nbBytesRead , sizeof(header)-nbBytesRead, 0);
 
         if (nbBytesRead!=sizeof(header))
         {//incomplete com
@@ -737,7 +738,7 @@ VN_tERR_Code VN_ExecuteSCAN_Matrix_XYZI8(const char *pIpAddress, const int MaxCl
             int status, cloudBytesSize, cloudPoints, rowCount, columnCount;
 
             //read the header of the response
-            nbBytesRead=recv(sock, (char*)header, sizeof(header), 0);
+            nbBytesRead=CirrusCom_Receive(sock, (char*)header, sizeof(header), 0);
             if(nbBytesRead == -1)
             {//a return value of -1 indicate a VN_SOCKET error
                 printf("VN_SOCKET error when trying to get scan_MATRIX_XYZi header\n");
@@ -746,9 +747,9 @@ VN_tERR_Code VN_ExecuteSCAN_Matrix_XYZI8(const char *pIpAddress, const int MaxCl
             }
             //in case of incomplete read of the header (possible here twice because rowcount & columnCount are sent in a separate packet from the rest of the header...)
             if (nbBytesRead < (int)sizeof(header))
-                nbBytesRead += recv(sock, ((char*)header) + nbBytesRead , sizeof(header)-nbBytesRead, 0);
+                nbBytesRead += CirrusCom_Receive(sock, ((char*)header) + nbBytesRead , sizeof(header)-nbBytesRead, 0);
             if (nbBytesRead < (int)sizeof(header))
-                nbBytesRead += recv(sock, ((char*)header) + nbBytesRead , sizeof(header)-nbBytesRead, 0);
+                nbBytesRead += CirrusCom_Receive(sock, ((char*)header) + nbBytesRead , sizeof(header)-nbBytesRead, 0);
 
             if (nbBytesRead!=sizeof(header))
             {//incomplete com
@@ -972,7 +973,7 @@ VN_tERR_Code VN_ExecuteSCAN_readHeader(VN_SOCKET sock)
     char  command[5];
 
     //The expected response from the Cirrus is the command code followed by a binary status then the cloud of points
-    nbBytesRead=recv(sock, command, 4, 0);
+    nbBytesRead=CirrusCom_Receive(sock, command, 4, 0);
     if(nbBytesRead == -1)
     {//a return value of -1 indicate a VN_SOCKET error
         printf("VN_SOCKET error when trying to get scan result fom SCAN_Matrix_XYZRGB command\n");
@@ -1025,7 +1026,7 @@ VN_tERR_Code VN_ExecuteSCAN_Matrix_XYZRGB_readHeader(VN_SOCKET sock,
     }
 
     //read the header of the response
-    nbBytesRead=recv(sock, (char*)header, sizeof(header), 0);
+    nbBytesRead=CirrusCom_Receive(sock, (char*)header, sizeof(header), 0);
     if(nbBytesRead == -1)
     {//a return value of -1 indicate a VN_SOCKET error
         printf("VN_SOCKET error when trying to get scan_MATRIX_XYZRGB header\n");
@@ -1033,9 +1034,9 @@ VN_tERR_Code VN_ExecuteSCAN_Matrix_XYZRGB_readHeader(VN_SOCKET sock,
     }
     //in case of incomplete read of the header (possible here twice because rowcount & columnCount are sent in a separate packet from the rest of the header...)
     if (nbBytesRead < (int)sizeof(header))
-        nbBytesRead += recv(sock, ((char*)header) + nbBytesRead , sizeof(header)-nbBytesRead, 0);
+        nbBytesRead += CirrusCom_Receive(sock, ((char*)header) + nbBytesRead , sizeof(header)-nbBytesRead, 0);
     if (nbBytesRead < (int)sizeof(header))
-        nbBytesRead += recv(sock, ((char*)header) + nbBytesRead , sizeof(header)-nbBytesRead, 0);
+        nbBytesRead += CirrusCom_Receive(sock, ((char*)header) + nbBytesRead , sizeof(header)-nbBytesRead, 0);
 
     if (nbBytesRead!=sizeof(header))
     {//incomplete com
@@ -1094,7 +1095,7 @@ VN_tERR_Code VN_ExecuteSCAN_CameraCOP_XYZI8_readHeader(VN_SOCKET sock,
     }
 
     //read the header of the response
-    nbBytesRead=recv(sock, (char*)header, sizeof(header), 0);
+    nbBytesRead=CirrusCom_Receive(sock, (char*)header, sizeof(header), 0);
     if(nbBytesRead == -1)
     {//a return value of -1 indicate a VN_SOCKET error
         printf("VN_SOCKET error when trying to get scan_MATRIX_XYZI8 header\n");
@@ -1103,9 +1104,9 @@ VN_tERR_Code VN_ExecuteSCAN_CameraCOP_XYZI8_readHeader(VN_SOCKET sock,
     }
     //in case of incomplete read of the header (possible here twice because rowcount & columnCount are sent in a separate packet from the rest of the header...)
     if (nbBytesRead < (int)sizeof(header))
-        nbBytesRead += recv(sock, ((char*)header) + nbBytesRead , sizeof(header)-nbBytesRead, 0);
+        nbBytesRead += CirrusCom_Receive(sock, ((char*)header) + nbBytesRead , sizeof(header)-nbBytesRead, 0);
     if (nbBytesRead < (int)sizeof(header))
-        nbBytesRead += recv(sock, ((char*)header) + nbBytesRead , sizeof(header)-nbBytesRead, 0);
+        nbBytesRead += CirrusCom_Receive(sock, ((char*)header) + nbBytesRead , sizeof(header)-nbBytesRead, 0);
 
     if (nbBytesRead!=sizeof(header))
     {//incomplete com
@@ -1549,7 +1550,7 @@ VN_tERR_Code VN_ExecuteSCAN_CameraCOP_MiddleCam2_XYZI(const char *pIpAddress,
         char  command[5];
 
         //The expected response from the Cirrus is the command code followed by the cloud of points
-        nbBytesRead=recv(sock, command, 4, 0);
+        nbBytesRead=CirrusCom_Receive(sock, command, 4, 0);
         if(nbBytesRead == -1)
         {//a return value of -1 indicate a VN_SOCKET error
             printf("VN_SOCKET error when trying to get scan result fom SCAN_Matrix_XYZRGB command\n");
@@ -1586,7 +1587,7 @@ VN_tERR_Code VN_ExecuteSCAN_CameraCOP_MiddleCam2_XYZI(const char *pIpAddress,
             int cloudBytesSize, rowCount, columnCount;
 
             //read the header of the response
-            nbBytesRead=recv(sock, (char*)header, sizeof(header), 0);
+            nbBytesRead=CirrusCom_Receive(sock, (char*)header, sizeof(header), 0);
             if(nbBytesRead == -1)
             {//a return value of -1 indicate a VN_SOCKET error
                 printf("VN_SOCKET error when trying to get scan_MATRIX_XYZRGB header\n");
@@ -1647,7 +1648,7 @@ VN_tERR_Code VN_ExecuteSCAN_CameraCOP_MiddleCam2_XYZI(const char *pIpAddress,
             char *pCloud=(char*)pCloud_XYZI8;
             while (bytesRead < cloudBytesSize)
             {
-                int rVal=recv(sock, pCloud, cloudBytesSize-bytesRead, 0);
+                int rVal=CirrusCom_Receive((int)sock, (void*)pCloud, (size_t)(cloudBytesSize-bytesRead), (int)0);
                 if (rVal==-1)
                 {//a return value of -1 indicate a VN_SOCKET error
                     printf("VN_SOCKET error when trying to get scan data (received %d of %d bytes expected)\n",bytesRead,cloudBytesSize);
@@ -1767,7 +1768,7 @@ VN_tERR_Code VN_ExecuteSCAN_DepthMap(const char *pIpAddress,
         char  command[5];
 
         //The expected response from the Cirrus is the command code followed by the deptmap
-        nbBytesRead=recv(sock, command, 4, 0);
+        nbBytesRead=CirrusCom_Receive(sock, command, 4, 0);
         if(nbBytesRead == -1)
         {//a return value of -1 indicate a VN_SOCKET error
             printf("VN_SOCKET error when trying to get scan result fom SCAN_Depthmap command\n");
@@ -1801,10 +1802,10 @@ VN_tERR_Code VN_ExecuteSCAN_DepthMap(const char *pIpAddress,
         else
         {
             int header[7+5];
-            int cloudBytesSize, rowCount, columnCount,status, nbPoints;
+            int cloudBytesSize, rowCount, columnCount,status/*, nbPoints*/;
 
             //read the header of the response
-            nbBytesRead=recv(sock, (char*)header, sizeof(header), 0);
+            nbBytesRead=CirrusCom_Receive(sock, (char*)header, sizeof(header), 0);
             if(nbBytesRead == -1)
             {//a return value of -1 indicate a VN_SOCKET error
                 printf("VN_SOCKET error when trying to get depthmap scan header\n");
@@ -1815,7 +1816,7 @@ VN_tERR_Code VN_ExecuteSCAN_DepthMap(const char *pIpAddress,
             for(int k=0 ; k<20 ; k++)
             {
                 if (nbBytesRead < (int)sizeof(header))
-                    nbBytesRead += recv(sock, ((char*)header) + nbBytesRead , sizeof(header)-nbBytesRead, 0);
+                    nbBytesRead += CirrusCom_Receive(sock, ((char*)header) + nbBytesRead , sizeof(header)-nbBytesRead, 0);
             }
 
             if (nbBytesRead!=sizeof(header))
@@ -1833,7 +1834,7 @@ VN_tERR_Code VN_ExecuteSCAN_DepthMap(const char *pIpAddress,
             }
 
             cloudBytesSize=header[1];
-            nbPoints=header[2];
+//            nbPoints=header[2];
 
             *pInvalidVal = (VN_UINT16)header[3];
             *pXOffset = *(float*)(&header[4]);
@@ -1889,7 +1890,7 @@ VN_tERR_Code VN_ExecuteSCAN_DepthMap(const char *pIpAddress,
             char *pCloud=(char*)pDepthMap;
             while (bytesRead < cloudBytesSize)
             {
-                int rVal=recv(sock, pCloud, cloudBytesSize-bytesRead, 0);
+                int rVal=CirrusCom_Receive(sock, pCloud, cloudBytesSize-bytesRead, 0);
                 if (rVal==-1)
                 {//a return value of -1 indicate a VN_SOCKET error
                     printf("VN_SOCKET error when trying to get scan data (received %d of %d bytes expected)\n",bytesRead,cloudBytesSize);
@@ -1974,7 +1975,7 @@ VN_tERR_Code VN_ExecuteCommandKAST(const char *IPaddress)
         //The expected response is 'KAST' in char format, then a binary uint32 status code (0 for no problem),
         //then the uint32 version of the KAST message returned by the Cirrus (at most the version supported by
         //the command, in this case 1 as specified. There is no version 0. )
-        nbBytesRead=recv(sock, response, 4, 0);
+        nbBytesRead=CirrusCom_Receive(sock, response, 4, 0);
 
         if(nbBytesRead == -1)
         {//a return value of -1 indicate a VN_SOCKET error
@@ -2010,7 +2011,7 @@ VN_tERR_Code VN_ExecuteCommandKAST(const char *IPaddress)
         {
             //read the uint32 status and uint32 version response
             char buffer[8];
-            nbBytesRead=recv(sock, (char*)buffer, sizeof(buffer), 0);
+            nbBytesRead=CirrusCom_Receive(sock, (char*)buffer, sizeof(buffer), 0);
             if(nbBytesRead == -1)
             {//a return value of -1 indicate a VN_SOCKET error
                 printf("Error in KAST command : VN_SOCKET error when receiving command result\n");
@@ -2044,7 +2045,7 @@ VN_tERR_Code VN_ExecuteCommandKAST(const char *IPaddress)
             if (version==1)
             {
                 char miscData[12];
-                nbBytesRead=recv(sock, (char*)miscData, sizeof(miscData), 0);
+                nbBytesRead=CirrusCom_Receive(sock, (char*)miscData, sizeof(miscData), 0);
                 CirrusCom_End_connection(sock);//end the communication properly (this was the last of the received data)
                 if(nbBytesRead == -1)
                 {//a return value of -1 indicate a VN_SOCKET error
