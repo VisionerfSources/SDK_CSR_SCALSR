@@ -3,9 +3,7 @@
 
 extern "C"
 {
-#include "VN_SDK_CommunicationFunctions.h"
-#include "VN_SDK_CommandFunctions.h"
-#include "VN_SDK_CloudSavingFunctions.h"
+#include "VN_Cirrus3D.API.h"
 }
 
 
@@ -18,9 +16,11 @@ public:
     VN_tERR_Code init(std::string ipAddress,
                       VN_UINT32 versionDevice=0);
     VN_tERR_Code capture(VN_Point_XYZRGB* pMatrix_XYZRGB,
-                         int matrixRows,
-                         int matrixColumns,
-                         int copSize);
+                         int &matrixRows,
+                         int &matrixColumns,
+                         int &copSize);
+    VN_tERR_Code captureXYZ(float* pXYZCloud,
+                            int* pCopSize);
 
     VN_tERR_Code getParameters();
 

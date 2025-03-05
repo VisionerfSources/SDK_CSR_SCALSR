@@ -7,20 +7,32 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "VNCirrus3DLib", "VNCirrus3D
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
-		Debug|x64 = Debug|x64
-		Debug|x86 = Debug|x86
-		Release|x64 = Release|x64
-		Release|x86 = Release|x86
+		dll Debug|x64 = dll Debug|x64
+		dll Debug|x86 = dll Debug|x86
+		dll Release|x64 = dll Release|x64
+		dll Release|x86 = dll Release|x86
+		lib Debug|x64 = lib Debug|x64
+		lib Debug|x86 = lib Debug|x86
+		lib Release|x64 = lib Release|x64
+		lib Release|x86 = lib Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{5C3ED51C-4912-4651-B188-7B36C7834876}.Debug|x64.ActiveCfg = Debug|x64
-		{5C3ED51C-4912-4651-B188-7B36C7834876}.Debug|x64.Build.0 = Debug|x64
-		{5C3ED51C-4912-4651-B188-7B36C7834876}.Debug|x86.ActiveCfg = Debug|Win32
-		{5C3ED51C-4912-4651-B188-7B36C7834876}.Debug|x86.Build.0 = Debug|Win32
-		{5C3ED51C-4912-4651-B188-7B36C7834876}.Release|x64.ActiveCfg = Release|x64
-		{5C3ED51C-4912-4651-B188-7B36C7834876}.Release|x64.Build.0 = Release|x64
-		{5C3ED51C-4912-4651-B188-7B36C7834876}.Release|x86.ActiveCfg = Release|Win32
-		{5C3ED51C-4912-4651-B188-7B36C7834876}.Release|x86.Build.0 = Release|Win32
+		{5C3ED51C-4912-4651-B188-7B36C7834876}.dll Debug|x64.ActiveCfg = dll Debug|x64
+		{5C3ED51C-4912-4651-B188-7B36C7834876}.dll Debug|x64.Build.0 = dll Debug|x64
+		{5C3ED51C-4912-4651-B188-7B36C7834876}.dll Debug|x86.ActiveCfg = dll Debug|Win32
+		{5C3ED51C-4912-4651-B188-7B36C7834876}.dll Debug|x86.Build.0 = dll Debug|Win32
+		{5C3ED51C-4912-4651-B188-7B36C7834876}.dll Release|x64.ActiveCfg = dll Release|x64
+		{5C3ED51C-4912-4651-B188-7B36C7834876}.dll Release|x64.Build.0 = dll Release|x64
+		{5C3ED51C-4912-4651-B188-7B36C7834876}.dll Release|x86.ActiveCfg = dll Release|Win32
+		{5C3ED51C-4912-4651-B188-7B36C7834876}.dll Release|x86.Build.0 = dll Release|Win32
+		{5C3ED51C-4912-4651-B188-7B36C7834876}.lib Debug|x64.ActiveCfg = lib Debug|x64
+		{5C3ED51C-4912-4651-B188-7B36C7834876}.lib Debug|x64.Build.0 = lib Debug|x64
+		{5C3ED51C-4912-4651-B188-7B36C7834876}.lib Debug|x86.ActiveCfg = lib Debug|Win32
+		{5C3ED51C-4912-4651-B188-7B36C7834876}.lib Debug|x86.Build.0 = lib Debug|Win32
+		{5C3ED51C-4912-4651-B188-7B36C7834876}.lib Release|x64.ActiveCfg = lib Release|x64
+		{5C3ED51C-4912-4651-B188-7B36C7834876}.lib Release|x64.Build.0 = lib Release|x64
+		{5C3ED51C-4912-4651-B188-7B36C7834876}.lib Release|x86.ActiveCfg = lib Release|Win32
+		{5C3ED51C-4912-4651-B188-7B36C7834876}.lib Release|x86.Build.0 = lib Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

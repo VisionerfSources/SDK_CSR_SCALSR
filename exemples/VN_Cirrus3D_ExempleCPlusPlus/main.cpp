@@ -3,9 +3,7 @@
 
 extern "C"
 {
-#include "VN_SDK_CommunicationFunctions.h"
-#include "VN_SDK_CommandFunctions.h"
-#include "VN_SDK_CloudSavingFunctions.h"
+#include "VN_Cirrus3D.API.h"
 }
 
 
@@ -74,7 +72,7 @@ void VN_PrintError(VN_tERR_Code err)
     case VN_eERR_UnknownData:
         printf("The requested data is not known by the Cirrus3D (19)");
             break;
-    case VN_eERR_ValueOutOfBounds:
+    case VN_eERR_ValueOutOfRanges:
         printf("The value of the data is out of Ranges (20)");
             break;
     case VN_eERR_UnknownDataType:
@@ -97,6 +95,7 @@ int main()
     VN_tERR_Code err;
     Cirrus3D myCirrus;
     VN_Point_XYZRGB* pMatrix_XYZRGB= new(VN_Point_XYZRGB[VN_cMaxCOPSize]);
+    float* pXYZ = new(float[VN_cMaxCOPSize]);
     int matrixRows=0;//number of rows in case the cloud of points format is a matrix
     int matrixColumns=0;//number of columns in case the cloud of points format is a matrix
     int copSize=0;//current number of points
@@ -239,10 +238,10 @@ int main()
     }
 
     std::string fileName= "./PointCloud_config_1.bmp";
-    err=VN_SaveXYZRGBCloudAsDepthMapBmp(pMatrix_XYZRGB,
-                                           matrixRows,
-                                           matrixColumns,
-                                           fileName.c_str());
+    err= VN_SaveXYZRGBCloudAsDepthMapBmp(pMatrix_XYZRGB,
+                                 matrixRows,
+                                 matrixColumns,
+                                 fileName.c_str());
     if(err!=VN_eERR_NoError)
     {
         VN_PrintError(err);
@@ -263,21 +262,19 @@ int main()
     }
 
 
-    err=myCirrus.capture(pMatrix_XYZRGB,
-                         matrixRows,
-                         matrixColumns,
-                         copSize);
+    err=myCirrus.captureXYZ(pXYZ,
+                            &copSize);
     if(err!=VN_eERR_NoError)
     {
         VN_PrintError(err);
         return err;
     }
 
-    fileName= "./PointCloud_config_1.bmp";
-    err=VN_SaveXYZRGBCloudAsDepthMapBmp(pMatrix_XYZRGB,
-                                           matrixRows,
-                                           matrixColumns,
-                                           fileName.c_str());
+
+    fileName = "./PointCloud_config_2.bin";
+    err = VN_SaveXYZCloudAsBinFile(pXYZ,
+                                   copSize,
+                                   fileName.c_str());
     if(err!=VN_eERR_NoError)
     {
         VN_PrintError(err);
