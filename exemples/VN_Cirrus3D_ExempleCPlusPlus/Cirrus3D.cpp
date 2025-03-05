@@ -2,9 +2,8 @@
 
 extern "C"
 {
-#include "VN_SDK_CommunicationFunctions.h"
-#include "VN_SDK_CommandFunctions.h"
-#include "VN_SDK_CloudSavingFunctions.h"
+#include "VN_Cirrus3D.API.h"
+
 }
 #include "../../lib/API/VN_Cirrus3D_DataId.h"
 
@@ -48,18 +47,27 @@ VN_tERR_Code Cirrus3D::init(std::string ipAddress,
     return err;
 }
 VN_tERR_Code Cirrus3D::capture(VN_Point_XYZRGB* pMatrix_XYZRGB,
-                               int matrixRows,
-                               int matrixColumns,
-                               int copSize)
+    int &matrixRows,
+    int &matrixColumns,
+    int &copSize)
 {
     //**** Execute a scan with the currently configuration, where the expected resulting ****//
     return VN_ExecuteSCAN_Matrix_XYZRGB(m_Cirrus3DHandler.IPAddress,
-                                       VN_cMaxCOPSize,
-                                       pMatrix_XYZRGB,
-                                       &copSize,
-                                       &matrixColumns,
-                                       &matrixRows);
+        VN_cMaxCOPSize,
+        pMatrix_XYZRGB,
+        &copSize,
+        &matrixColumns,
+        &matrixRows);
 
+}
+VN_tERR_Code Cirrus3D::captureXYZ(float* pXYZCloud,
+                                  int *pCopSize)
+{
+    //**** Execute a scan with the currently configuration, where the expected resulting ****//
+    return VN_ExecuteSCAN_XYZ(m_Cirrus3DHandler.IPAddress,
+        VN_cMaxCOPSize,
+        (char*)pXYZCloud,
+        pCopSize);
 }
 VN_tERR_Code Cirrus3D::getParameters()
 {
