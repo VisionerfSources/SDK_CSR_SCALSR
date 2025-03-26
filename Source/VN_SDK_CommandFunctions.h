@@ -18,6 +18,7 @@
  *                 VN_ExecuteSCAN_CameraCOP_XYZI8_sampling_s................ P.H
  * 07/06/2024 COMMENT: Adding comment in Header function.................... P.H
  * 24/07/2024 NEW VN_ExecuteSCAN_DepthMap function.......................... P.H
+ * 26/03/2025 ADDED: Export the functions available when using the library.. P.H
  *------------------------------------------------------------------------------
  */
 
@@ -32,8 +33,8 @@
  * \retval VN_eERR_NoError if success (i.e. Cirrus ready)
  * \retval Error code otherwise
  */
-VN_tERR_Code VN_ExecuteCommandSTS(const char *pIpAddress,
-                                  int *pStatus);
+EXPORT VN_tERR_Code VN_ExecuteCommandSTS(const char *pIpAddress,
+                                         int *pStatus);
 
 /** @ingroup CloudOfPoint
  * \brief Request its information from the Cirrus3D
@@ -46,9 +47,9 @@ VN_tERR_Code VN_ExecuteCommandSTS(const char *pIpAddress,
  * \retval Error code otherwise
 
  */
-VN_tERR_Code VN_ExecuteCommandINFO(const char *IPAddress,
-                                   int InfoType,
-                                   char *pResult);
+EXPORT VN_tERR_Code VN_ExecuteCommandINFO(const char *IPAddress,
+                                          int InfoType,
+                                          char *pResult);
 
 
 /** @ingroup CloudOfPoint
@@ -60,7 +61,7 @@ VN_tERR_Code VN_ExecuteCommandINFO(const char *IPAddress,
  * \retval VN_eERR_NoError if success
  * \retval Error code otherwise
  */
-VN_tERR_Code VN_ExecuteCommandRECI(const char *IPAddress,
+EXPORT VN_tERR_Code VN_ExecuteCommandRECI(const char *IPAddress,
                                    int ConfigId);
 
 
@@ -85,7 +86,7 @@ VN_tERR_Code VN_ExecuteSCAN_readHeader(VN_SOCKET sock);
  * \retval Error code otherwise
 
  */
-VN_tERR_Code VN_ExecuteSCAN_XYZ(const char *IPAddress, const int MaxCloudSize, char *pCloud_XYZ, int *pCloudSize);
+EXPORT VN_tERR_Code VN_ExecuteSCAN_XYZ(const char *IPAddress, const int MaxCloudSize, char *pCloud_XYZ, int *pCloudSize);
 
 /** @ingroup CloudOfPoint
  * \brief Request the Cirrus3D to scan and get the scan result as a XYZI cloud
@@ -99,7 +100,7 @@ VN_tERR_Code VN_ExecuteSCAN_XYZ(const char *IPAddress, const int MaxCloudSize, c
  * \retval Error code otherwise
 
  */
-VN_tERR_Code VN_ExecuteSCAN_XYZI16(const char *IPAddress, const int MaxCloudSize, VN_Point_XYZI16 *pCloud_XYZI16, int *pCloudSize);
+EXPORT VN_tERR_Code VN_ExecuteSCAN_XYZI16(const char *IPAddress, const int MaxCloudSize, VN_Point_XYZI16 *pCloud_XYZI16, int *pCloudSize);
 
 /** @ingroup CloudOfPoint
  * \brief Request the Cirrus3D to scan and get the scan result as matrix of XYZi points
@@ -115,7 +116,7 @@ VN_tERR_Code VN_ExecuteSCAN_XYZI16(const char *IPAddress, const int MaxCloudSize
  * \retval Error code otherwise
 
  */
-VN_tERR_Code VN_ExecuteSCAN_Matrix_XYZI8(const char *IPAddress, const int MaxCloudSize, VN_Point_XYZI8 *pCloud_XYZI8, int *pCloudSize, int *pMatrixColumns, int *pMatrixRows);
+EXPORT VN_tERR_Code VN_ExecuteSCAN_Matrix_XYZI8(const char *IPAddress, const int MaxCloudSize, VN_Point_XYZI8 *pCloud_XYZI8, int *pCloudSize, int *pMatrixColumns, int *pMatrixRows);
 
 /** @ingroup CloudOfPoint
  * \brief request the Cirrus3D to scan and get the scan result as matrix of XYZRGB points
@@ -135,7 +136,7 @@ VN_tERR_Code VN_ExecuteSCAN_Matrix_XYZI8(const char *IPAddress, const int MaxClo
  * \retval Error code otherwise
 
  */
-VN_tERR_Code VN_ExecuteSCAN_Matrix_XYZRGB(const char *IPAddress, const int MaxCloudSize, VN_Point_XYZRGB *pCloud_XYZRGB, int *pCloudSize, int *pMatrixColumns, int *pMatrixRows);
+EXPORT VN_tERR_Code VN_ExecuteSCAN_Matrix_XYZRGB(const char *IPAddress, const int MaxCloudSize, VN_Point_XYZRGB *pCloud_XYZRGB, int *pCloudSize, int *pMatrixColumns, int *pMatrixRows);
 
 /** @ingroup CloudOfPoint
  * \brief request the Cirrus3D to scan and get the scan result as matrix of XYZI8 points
@@ -153,11 +154,11 @@ VN_tERR_Code VN_ExecuteSCAN_Matrix_XYZRGB(const char *IPAddress, const int MaxCl
  * \retval VN_eERR_NoError if success
  * \retval Error code otherwise
  */
-VN_tERR_Code VN_ExecuteSCAN_CameraCOP_XYZI8(const char *pIpAddress,
-                                             const int MaxCloudSize,
-                                             VN_Point_XYZI8 *pCloud_XYZI8,
-                                             int *pCloudSize, int *pMatrixColumns, int *pMatrixRows,
-                                             VN_BOOL fromMiddleCamPOV);
+EXPORT VN_tERR_Code VN_ExecuteSCAN_CameraCOP_XYZI8(const char *pIpAddress,
+                                                   const int MaxCloudSize,
+                                                   VN_Point_XYZI8 *pCloud_XYZI8,
+                                                   int *pCloudSize, int *pMatrixColumns, int *pMatrixRows,
+                                                   VN_BOOL fromMiddleCamPOV);
 
 
 /** @ingroup CloudOfPoint
@@ -177,11 +178,11 @@ VN_tERR_Code VN_ExecuteSCAN_CameraCOP_XYZI8(const char *pIpAddress,
  * \retval VN_eERR_NoError if success
  * \retval Error code otherwise
  */
-VN_tERR_Code VN_ExecuteSCAN_CameraCOP_XYZI8_s(const VN_Cirrus3DHandler *pCirrus3DHandler,
-                                              const int MaxCloudSize,
-                                              VN_Point_XYZI8 *pCloud_XYZI8,
-                                              int *pCloudSize, int *pMatrixColumns, int *pMatrixRows,
-                                              VN_BOOL fromMiddleCamPOV);
+EXPORT VN_tERR_Code VN_ExecuteSCAN_CameraCOP_XYZI8_s(const VN_Cirrus3DHandler *pCirrus3DHandler,
+                                                     const int MaxCloudSize,
+                                                     VN_Point_XYZI8 *pCloud_XYZI8,
+                                                     int *pCloudSize, int *pMatrixColumns, int *pMatrixRows,
+                                                     VN_BOOL fromMiddleCamPOV);
 
 /** @ingroup CloudOfPoint
  * \brief request the Cirrus3D to scan and get the scan result as matrix of XYZI points
@@ -200,14 +201,14 @@ VN_tERR_Code VN_ExecuteSCAN_CameraCOP_XYZI8_s(const VN_Cirrus3DHandler *pCirrus3
  * \retval VN_eERR_NoError if success
  * \retval Error code otherwise
  */
-VN_tERR_Code VN_ExecuteSCAN_CameraCOP_XYZI8_sampling(const char *pIpAddress,
-                                                     const int MaxCloudSize,
-                                                     VN_Point_XYZI8 *pCloud_XYZI8,
-                                                     int *pCloudSize,
-                                                     int *pMatrixColumns,
-                                                     int *pMatrixRows,
-                                                     VN_BOOL fromMiddleCamPOV,
-                                                     VN_REAL32 samplingFactor);
+EXPORT VN_tERR_Code VN_ExecuteSCAN_CameraCOP_XYZI8_sampling(const char *pIpAddress,
+                                                           const int MaxCloudSize,
+                                                           VN_Point_XYZI8 *pCloud_XYZI8,
+                                                           int *pCloudSize,
+                                                           int *pMatrixColumns,
+                                                           int *pMatrixRows,
+                                                           VN_BOOL fromMiddleCamPOV,
+                                                           VN_REAL32 samplingFactor);
 /** @ingroup CloudOfPoint
  * \brief request the Cirrus3D to scan and get the scan result as matrix of XYZI points
  *  The matrix corresponds to a rectified image from the left camera or a virtual middle camera.
@@ -225,14 +226,14 @@ VN_tERR_Code VN_ExecuteSCAN_CameraCOP_XYZI8_sampling(const char *pIpAddress,
  * \retval VN_eERR_NoError if success
  * \retval Error code otherwise
  */
-VN_tERR_Code VN_ExecuteSCAN_CameraCOP_XYZI8_sampling_s(const VN_Cirrus3DHandler *pCirrus3DHandler,
-                                                       const int MaxCloudSize,
-                                                       VN_Point_XYZI8 *pCloud_XYZI8,
-                                                       int *pCloudSize,
-                                                       int *pMatrixColumns,
-                                                       int *pMatrixRows,
-                                                       VN_BOOL fromMiddleCamPOV,
-                                                       VN_REAL32 samplingFactor);
+EXPORT VN_tERR_Code VN_ExecuteSCAN_CameraCOP_XYZI8_sampling_s(const VN_Cirrus3DHandler *pCirrus3DHandler,
+                                                              const int MaxCloudSize,
+                                                              VN_Point_XYZI8 *pCloud_XYZI8,
+                                                              int *pCloudSize,
+                                                              int *pMatrixColumns,
+                                                              int *pMatrixRows,
+                                                              VN_BOOL fromMiddleCamPOV,
+                                                              VN_REAL32 samplingFactor);
 
 /** @ingroup CloudOfPoint
  * \brief request the Cirrus3D to scan and get the scan result as matrix of XYZI points
@@ -252,12 +253,12 @@ VN_tERR_Code VN_ExecuteSCAN_CameraCOP_XYZI8_sampling_s(const VN_Cirrus3DHandler 
  * \retval VN_eERR_NoError if success
  * \retval Error code otherwise
  */
-VN_tERR_Code VN_ExecuteSCAN_CameraCOP_MiddleCam2_XYZI(const char *pIpAddress,
-                                                      const int MaxCloudSize,
-                                                      VN_Point_XYZI8 *pCloud_XYZI8,
-                                                      int *pMatrixColumns,
-                                                      int *pMatrixRows);
-
+EXPORT VN_tERR_Code VN_ExecuteSCAN_CameraCOP_MiddleCam2_XYZI(const char *pIpAddress,
+                                                             const int MaxCloudSize,
+                                                             VN_Point_XYZI8 *pCloud_XYZI8,
+                                                             int *pMatrixColumns,
+                                                             int *pMatrixRows);
+ 
 
 /** @ingroup CloudOfPoint
  * \brief request the Cirrus3D to scan and get the scan result as rectified image
@@ -302,16 +303,16 @@ VN_tERR_Code VN_ExecuteSCAN_CameraCOP_MiddleCam2_XYZI(const char *pIpAddress,
  * \retval VN_eERR_NoError if success
  * \retval Error code otherwise
  */
-VN_tERR_Code VN_ExecuteSCAN_DepthMap(const char *pIpAddress,
-                                         const int MaxCloudSize,
-                                         VN_UINT16 *pDepthMap,
-                                         VN_UINT32 *pMatrixColumns,
-                                         VN_UINT32 *pMatrixRows,
-                                         VN_UINT16 *pInvalidVal,
-                                         float *pXOffset, float *pXScale,
-                                         float *pYOffset, float *pYScale,
-                                         float *pZOffset, float *pZScale,
-                                         float samplingFactor);
+EXPORT VN_tERR_Code VN_ExecuteSCAN_DepthMap(const char *pIpAddress,
+                                            const int MaxCloudSize,
+                                            VN_UINT16 *pDepthMap,
+                                            VN_UINT32 *pMatrixColumns,
+                                            VN_UINT32 *pMatrixRows,
+                                            VN_UINT16 *pInvalidVal,
+                                            float *pXOffset, float *pXScale,
+                                            float *pYOffset, float *pYScale,
+                                            float *pZOffset, float *pZScale,
+                                            float samplingFactor);
 
 /** @ingroup CloudOfPoint
  * \brief Read header receive on the socket sock after a command SCAN Matrix_XYZRGB
@@ -319,12 +320,12 @@ VN_tERR_Code VN_ExecuteSCAN_DepthMap(const char *pIpAddress,
  * \retval VN_eERR_NoError if success
  * \retval Error code otherwise
  */
-VN_tERR_Code VN_ExecuteSCAN_Matrix_XYZRGB_readHeader(VN_SOCKET sock,
-                                                     VN_INT32 *pStatus,
-                                                     VN_INT32 *pCloudBytesSize,
-                                                     VN_INT32 *pCloudPoints,
-                                                     VN_INT32 *pRowCount,
-                                                     VN_INT32 *pColumnCount);
+EXPORT VN_tERR_Code VN_ExecuteSCAN_Matrix_XYZRGB_readHeader(VN_SOCKET sock,
+                                                            VN_INT32 *pStatus,
+                                                            VN_INT32 *pCloudBytesSize,
+                                                            VN_INT32 *pCloudPoints,
+                                                            VN_INT32 *pRowCount,
+                                                            VN_INT32 *pColumnCount);
 
 /**
  * \brief get status / keepAlive response from the Cirrus.
@@ -335,7 +336,7 @@ VN_tERR_Code VN_ExecuteSCAN_Matrix_XYZRGB_readHeader(VN_SOCKET sock,
  * \retval VN_eERR_NoError if success (i.e. Cirrus connected no reported error)
  * \retval error code otherwise
  */
-VN_tERR_Code VN_ExecuteCommandKAST(const char *IPaddress);
+EXPORT VN_tERR_Code VN_ExecuteCommandKAST(const char *IPaddress);
 
 /** 
  * \brief This function is used to get Cirrus3D available
@@ -345,7 +346,7 @@ VN_tERR_Code VN_ExecuteCommandKAST(const char *IPaddress);
  * \retval VN_eERR_NoError if success
  * \retval Error code otherwise
  */
-VN_tERR_Code VN_GetCirrus3DAvailable(VN_INT32 *pNbCirrus3DAvailable, char ipCirrus3DAvailable[VN_cMaxNbCirrus3D][VN_cSizeDataString]);
+EXPORT VN_tERR_Code VN_GetCirrus3DAvailable(VN_INT32 *pNbCirrus3DAvailable, char ipCirrus3DAvailable[VN_cMaxNbCirrus3D][VN_cSizeDataString]);
 
 enum
 {
@@ -367,8 +368,8 @@ enum
  * \retval VN_eERR_NoError if success
  * \retval Error code otherwise
  */
-VN_tERR_Code VN_Cirrus3DHandler_Initialize(char *IPAddress,
-                                           VN_Cirrus3DHandler *pCirrus3DHandler);
+EXPORT VN_tERR_Code VN_Cirrus3DHandler_Initialize(char *IPAddress,
+                                                  VN_Cirrus3DHandler *pCirrus3DHandler);
 
 
 /** @ingroup Config
@@ -378,8 +379,8 @@ VN_tERR_Code VN_Cirrus3DHandler_Initialize(char *IPAddress,
  * \retval VN_eERR_NoError if success
  * \retval Error code otherwise
  */
-VN_tERR_Code VN_Cirrus3DHandler_Get(char* pIpAddress,
-                                    VN_Cirrus3DHandler *pCirrus3DHandler);
+EXPORT VN_tERR_Code VN_Cirrus3DHandler_Get(char* pIpAddress,
+                                           VN_Cirrus3DHandler *pCirrus3DHandler);
 
 /** @ingroup General
  * \brief This function is used to force device version
@@ -389,8 +390,8 @@ VN_tERR_Code VN_Cirrus3DHandler_Get(char* pIpAddress,
  * \retval VN_eERR_NoError if success
  * \retval Error code otherwise
  */
-VN_tERR_Code VN_Cirrus3DHandler_ForceVersionDevice(VN_Cirrus3DHandler *pCirrus3DHandler,
-                                                   VN_UINT32 NewDeviceVersion);
+EXPORT VN_tERR_Code VN_Cirrus3DHandler_ForceVersionDevice(VN_Cirrus3DHandler *pCirrus3DHandler,
+                                                          VN_UINT32 NewDeviceVersion);
 
 /** @ingroup Config
  * \brief This function is used to reset the VN_Cirrus3DHandler structure used by the get/set data functions
@@ -399,7 +400,7 @@ VN_tERR_Code VN_Cirrus3DHandler_ForceVersionDevice(VN_Cirrus3DHandler *pCirrus3D
  * \retval VN_eERR_NoError if success
  * \retval Error code otherwise
  */
-VN_tERR_Code VN_Cirrus3DHandler_ResetData(VN_Cirrus3DHandler *pCirrus3DHandler);
+EXPORT VN_tERR_Code VN_Cirrus3DHandler_ResetData(VN_Cirrus3DHandler *pCirrus3DHandler);
 
 /** @ingroup Config
  * \brief This function is used to get the list of configuration datas
@@ -410,9 +411,9 @@ VN_tERR_Code VN_Cirrus3DHandler_ResetData(VN_Cirrus3DHandler *pCirrus3DHandler);
  * \retval VN_eERR_NoError if success
  * \retval Error code otherwise
  */
-VN_tERR_Code VN_Cirrus3DHandler_GetDataRootList(const VN_Cirrus3DHandler *pCirrus3DHandler,
-                                                VN_INT32 *pNbParamInList,
-                                                VN_tDataRoot DataList[VN_cSizeList]);
+EXPORT VN_tERR_Code VN_Cirrus3DHandler_GetDataRootList(const VN_Cirrus3DHandler *pCirrus3DHandler,
+                                                       VN_INT32 *pNbParamInList,
+                                                       VN_tDataRoot DataList[VN_cSizeList]);
 
 /** @ingroup Config
  * \brief This function is used to get the data
@@ -425,10 +426,10 @@ VN_tERR_Code VN_Cirrus3DHandler_GetDataRootList(const VN_Cirrus3DHandler *pCirru
  * \retval VN_eERR_NoError if success
  * \retval Error code otherwise
  */
-VN_tERR_Code VN_Cirrus3DHandler_GetData(const VN_Cirrus3DHandler *pCirrus3DHandler,
-                                        VN_UINT32 DataId,
-                                        VN_eDataType DataType,
-                                        VN_tDataRoot* pData);
+EXPORT VN_tERR_Code VN_Cirrus3DHandler_GetData(const VN_Cirrus3DHandler *pCirrus3DHandler,
+                                               VN_UINT32 DataId,
+                                               VN_eDataType DataType,
+                                               VN_tDataRoot* pData);
 
 /** @ingroup Config
  * \brief This function is used to get the data of type INT32
@@ -439,7 +440,8 @@ VN_tERR_Code VN_Cirrus3DHandler_GetData(const VN_Cirrus3DHandler *pCirrus3DHandl
  * \retval VN_eERR_NoError if success
  * \retval Error code otherwise
  */
-static inline VN_tERR_Code VN_Cirrus3DHandler_GetDataInt32(const VN_Cirrus3DHandler *pCirrus3DHandler,
+
+EXPORT inline VN_tERR_Code VN_Cirrus3DHandler_GetDataInt32(const VN_Cirrus3DHandler *pCirrus3DHandler,
                                                            VN_UINT32 DataId,
                                                            VN_tDataInt32* pDataInt32)
 {
@@ -458,7 +460,7 @@ static inline VN_tERR_Code VN_Cirrus3DHandler_GetDataInt32(const VN_Cirrus3DHand
  * \retval VN_eERR_NoError if success
  * \retval Error code otherwise
  */
-static inline VN_tERR_Code VN_Cirrus3DHandler_GetDataReal32(const VN_Cirrus3DHandler *pCirrus3DHandler,
+EXPORT inline VN_tERR_Code VN_Cirrus3DHandler_GetDataReal32(const VN_Cirrus3DHandler *pCirrus3DHandler,
                                                             VN_UINT32 DataId,
                                                             VN_tDataReal32* pDataReal32)
 {
@@ -477,7 +479,7 @@ static inline VN_tERR_Code VN_Cirrus3DHandler_GetDataReal32(const VN_Cirrus3DHan
  * \retval VN_eERR_NoError if success
  * \retval Error code otherwise
  */
-static inline VN_tERR_Code VN_Cirrus3DHandler_GetDataString(const VN_Cirrus3DHandler *pCirrus3DHandler,
+EXPORT inline VN_tERR_Code VN_Cirrus3DHandler_GetDataString(const VN_Cirrus3DHandler *pCirrus3DHandler,
                                                             VN_UINT32 DataId,
                                                             VN_tDataString* pDataString)
 {
@@ -495,8 +497,8 @@ static inline VN_tERR_Code VN_Cirrus3DHandler_GetDataString(const VN_Cirrus3DHan
  * \retval VN_eERR_NoError if success
  * \retval Error code otherwise
  */
-VN_tERR_Code VN_Cirrus3DHandler_GetDataValue(const VN_Cirrus3DHandler *pCirrus3DHandler,
-                                             VN_tDataRoot* pData);
+EXPORT VN_tERR_Code VN_Cirrus3DHandler_GetDataValue(const VN_Cirrus3DHandler *pCirrus3DHandler,
+                                                    VN_tDataRoot* pData);
 
 /** @ingroup Config
  * \brief This function is used to get the data value of type INT32
@@ -506,7 +508,7 @@ VN_tERR_Code VN_Cirrus3DHandler_GetDataValue(const VN_Cirrus3DHandler *pCirrus3D
  * \retval VN_eERR_NoError if success
  * \retval Error code otherwise
  */
-static inline VN_tERR_Code VN_Cirrus3DHandler_GetDataInt32Value(const VN_Cirrus3DHandler *pCirrus3DHandler,
+EXPORT inline VN_tERR_Code VN_Cirrus3DHandler_GetDataInt32Value(const VN_Cirrus3DHandler *pCirrus3DHandler,
                                                                 VN_tDataInt32* pDataInt32)
 {
     return VN_Cirrus3DHandler_GetDataValue(pCirrus3DHandler,
@@ -521,7 +523,7 @@ static inline VN_tERR_Code VN_Cirrus3DHandler_GetDataInt32Value(const VN_Cirrus3
  * \retval VN_eERR_NoError if success
  * \retval Error code otherwise
  */
-static inline VN_tERR_Code VN_Cirrus3DHandler_GetDataReal32Value(const VN_Cirrus3DHandler *pCirrus3DHandler,
+EXPORT inline VN_tERR_Code VN_Cirrus3DHandler_GetDataReal32Value(const VN_Cirrus3DHandler *pCirrus3DHandler,
                                                                  VN_tDataReal32* pDataReal32)
 {
     return VN_Cirrus3DHandler_GetDataValue(pCirrus3DHandler,
@@ -536,7 +538,7 @@ static inline VN_tERR_Code VN_Cirrus3DHandler_GetDataReal32Value(const VN_Cirrus
  * \retval VN_eERR_NoError if success
  * \retval Error code otherwise
  */
-static inline VN_tERR_Code VN_Cirrus3DHandler_GetDataStringValue(const VN_Cirrus3DHandler *pCirrus3DHandler,
+EXPORT inline VN_tERR_Code VN_Cirrus3DHandler_GetDataStringValue(const VN_Cirrus3DHandler *pCirrus3DHandler,
                                                                  VN_tDataString* pDataString)
 {
     return VN_Cirrus3DHandler_GetDataValue(pCirrus3DHandler,
@@ -553,8 +555,8 @@ static inline VN_tERR_Code VN_Cirrus3DHandler_GetDataStringValue(const VN_Cirrus
  * \retval Error code otherwise
 
  */
-VN_tERR_Code VN_Cirrus3DHandler_SetDataValue(const VN_Cirrus3DHandler *pCirrus3DHandler,
-                                             VN_tDataRoot* pData);
+EXPORT VN_tERR_Code VN_Cirrus3DHandler_SetDataValue(const VN_Cirrus3DHandler *pCirrus3DHandler,
+                                                    VN_tDataRoot* pData);
 
 /** @ingroup Config
  * \brief This function is used to get the data value
@@ -565,7 +567,7 @@ VN_tERR_Code VN_Cirrus3DHandler_SetDataValue(const VN_Cirrus3DHandler *pCirrus3D
  * \retval Error code otherwise
 
  */
-static inline VN_tERR_Code VN_Cirrus3DHandler_SetDataInt32Value(const VN_Cirrus3DHandler *pCirrus3DHandler,
+EXPORT inline VN_tERR_Code VN_Cirrus3DHandler_SetDataInt32Value(const VN_Cirrus3DHandler *pCirrus3DHandler,
                                                                 VN_tDataInt32* pDataInt32)
 {
     return VN_Cirrus3DHandler_SetDataValue(pCirrus3DHandler,
@@ -579,7 +581,7 @@ static inline VN_tERR_Code VN_Cirrus3DHandler_SetDataInt32Value(const VN_Cirrus3
  * \retval VN_eERR_NoError if success
  * \retval Error code otherwise
  */
-static inline VN_tERR_Code VN_Cirrus3DHandler_SetDataReal32Value(const VN_Cirrus3DHandler *pCirrus3DHandler,
+EXPORT inline VN_tERR_Code VN_Cirrus3DHandler_SetDataReal32Value(const VN_Cirrus3DHandler *pCirrus3DHandler,
                                                                  VN_tDataReal32* pDataReal32)
 {
     return VN_Cirrus3DHandler_SetDataValue(pCirrus3DHandler,
@@ -594,7 +596,7 @@ static inline VN_tERR_Code VN_Cirrus3DHandler_SetDataReal32Value(const VN_Cirrus
  * \retval VN_eERR_NoError if success
  * \retval Error code otherwise
  */
-static inline VN_tERR_Code VN_Cirrus3DHandler_SetDataStringValue(const VN_Cirrus3DHandler *pCirrus3DHandler,
+EXPORT inline VN_tERR_Code VN_Cirrus3DHandler_SetDataStringValue(const VN_Cirrus3DHandler *pCirrus3DHandler,
                                                                  VN_tDataString* pDataString)
 {
     return VN_Cirrus3DHandler_SetDataValue(pCirrus3DHandler,

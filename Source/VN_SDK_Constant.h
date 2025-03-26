@@ -4,6 +4,7 @@
  * 16/05/2024 CHANGED: VN_Point_XYZI8 is declared without padding
  *            CHANGED: VN_Point_XYZI16 is declared without padding.......... P.H
  * 04/07/2024 ADDED: VN_cSmallSocketTimeout................................. P.H
+ * 26/03/2025 ADDED: Export the functions available when using the library.. P.H
  *------------------------------------------------------------------------------
  */
 
@@ -43,6 +44,7 @@ typedef struct in_addr IN_ADDR;
 #define INVALID_VN_SOCKET -1
 #define VN_SOCKET_ERROR -1
 #define cPortConfiguration 20002
+#define EXPORT __declspec(dllexport)
 
 /********************************** GENERAL GLOBALS **********************************/
 /** @ingroup GeneralConst

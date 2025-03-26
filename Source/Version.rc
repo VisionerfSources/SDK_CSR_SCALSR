@@ -1,0 +1,29 @@
+#include <winver.h>
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION 5, 0, 0, 0
+PRODUCTVERSION 1, 0, 0, 0
+FILEFLAGSMASK 0x3fL
+FILEFLAGS 0x0L
+FILEOS VOS__WINDOWS32
+FILETYPE VFT_DLL
+FILESUBTYPE 0x0L
+{
+    BLOCK "StringFileInfo"
+    {
+        BLOCK "040904b0"
+        {
+            VALUE "Visionerf", "Visionerf"
+                VALUE "SDK_CSR_SCALSR", "The librairy contains all functions, structures and constants to communicate with the Cirrus3D SCALSR."
+                VALUE "FileVersion", "1.1.0.0"
+                VALUE "InternalName", "VNCirrus3DLib.dll"
+                VALUE "OriginalFilename", "VNCirrus3DLib.dll"
+                VALUE "ProductName", "Cirrus3D SCALSR"
+                VALUE "ProductVersion", "6.0.0.0"
+        }
+    }
+    BLOCK "VarFileInfo"
+    {
+        VALUE "Translation", 0x0409, 0x04B0
+    }
+}
