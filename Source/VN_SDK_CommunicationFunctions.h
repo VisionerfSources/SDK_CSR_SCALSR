@@ -7,6 +7,7 @@
  *  16/05/2024: NEW: new function VN_Cirrus3DHandler_getHeaderVersion
  *                                CirrusCom_setTimeout...................... P.H
  *  28/11/2024: NEW: new function CirrusCom_Receive......................... P.H
+ *  26/03/2025 ADDED: Export the functions available when using the library. P.H
  *------------------------------------------------------------------------------
  */
 
@@ -20,28 +21,28 @@
  * \retval VN_eERR_NoError if success
  * \retval Error code otherwise
  */
-VN_UINT32 VN_Cirrus3DHandler_getProtocolVersion(void);
+EXPORT VN_UINT32 VN_Cirrus3DHandler_getProtocolVersion(void);
 
 /** @ingroup General
  * \brief This function is used to get Cirrus3D version header
  * \retval VN_eERR_NoError if success
  * \retval Error code otherwise
  */
-VN_UINT32 VN_Cirrus3DHandler_getHeaderVersion(void);
+EXPORT VN_UINT32 VN_Cirrus3DHandler_getHeaderVersion(void);
 
 /** @ingroup CommunicationTool
  * \brief Enable connection protocol for Windows OS
  * \retval VN_eERR_NoError if success
  * \retval Error code otherwise
  */
-VN_tERR_Code VN_CirrusCom_Init(void);
+EXPORT VN_tERR_Code VN_CirrusCom_Init(void);
 
 /** @ingroup CommunicationTool
  * \brief Cleanly end connection protocol for Windows OS
  * \retval VN_eERR_NoError if success
  * \retval Error code otherwise
  */
-VN_tERR_Code VN_CirrusCom_End(void);
+EXPORT VN_tERR_Code VN_CirrusCom_End(void);
 
 /**************************************************************************/
 
@@ -158,7 +159,7 @@ VN_tERR_Code CirrusCom_ReceiveBufferofSizeN(VN_SOCKET sock, char *buffer, int si
 static inline int CirrusCom_Receive(VN_SOCKET socket, void *pBuffer, size_t bufferLen, int flags)
 {
 #ifdef _WIN32
-    return recv(socket,reinterpret_cast<char*>(pbuf),bytesNb,flags);
+    return recv(socket,(char*)(pBuffer), bufferLen,flags);
 #else
     int rval=0;
     do{
