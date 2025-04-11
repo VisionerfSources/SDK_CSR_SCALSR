@@ -58,6 +58,20 @@ static extern int VN_ExecuteSCAN_CameraCOP_MiddleCam2_XYZI(
 );
 
 [DllImport(libPath, SetLastError = true, CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
+static extern int VN_ExecuteSCAN_DepthMap(
+    [MarshalAs(UnmanagedType.LPStr)] string IPAddress,
+    int MaxCloudSize,
+   [In, Out, MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 1)] ushort[] pDepthMap,
+    ref int pMatrixColumns,
+    ref int pMatrixRows,
+    ref ushort pInvalidVal,
+    ref float pXOffset, ref float pXScale,
+    ref float pYOffset, ref float pYScale,
+    ref float pZOffset, ref float pZScale,
+    float samplingFactor
+);
+
+[DllImport(libPath, SetLastError = true, CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
 static extern int VN_SaveXYZI8CloudAsLumBmp(
     [In, Out, MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 1)] VN_Point_XYZI8[] pCloud_XYZ,
     int pMatrixColumns,
@@ -72,10 +86,46 @@ static extern int VN_SaveXYZI8CloudAsPcdFile(
     int pMatrixRows,
     [MarshalAs(UnmanagedType.LPStr)] string pFileName
 );
+[DllImport(libPath, SetLastError = true, CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
+static extern int VN_SaveXYZI8CloudAsDepthMapBmp(
+    [In, Out, MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 1)] VN_Point_XYZI8[] pCloud_XYZ,
+    int pMatrixColumns,
+    int pMatrixRows,
+    [MarshalAs(UnmanagedType.LPStr)] string pFileName
+);
+
+[DllImport(libPath, SetLastError = true, CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
+static extern int VN_SaveDepthMapAsLumBmp(
+    [In, Out, MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 1)] ushort[] pDepthMap,
+    int pMatrixColumns,
+    int pMatrixRows,
+    [MarshalAs(UnmanagedType.LPStr)] string pFileName
+);
+
+[DllImport(libPath, SetLastError = true, CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
+static extern int VN_SaveDepthMapAsDepthMapBmp(
+    [In, Out, MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 1)] ushort[] pDepthMap,
+    int pMatrixColumns,
+    int pMatrixRows,
+    [MarshalAs(UnmanagedType.LPStr)] string pFileName
+);
+
+[DllImport(libPath, SetLastError = true, CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
+static extern int VN_SaveDepthMapAsDepthMapPCD(
+    [In, Out, MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 1)] ushort[] pDepthMap,
+    int matrixColumns,
+    int matrixRows,
+    ushort invalidVal,
+    float xOffset, float xScale,
+    float yOffset, float yScale,
+    float zOffset, float zScale,
+    [MarshalAs(UnmanagedType.LPStr)] string pFileName
+);
+
 
 int status;
 int err;
-string CirrusIP = "192.168.1.201";
+string CirrusIP = "192.168.5.222";
 int Config = 1000;
 StringBuilder CirrusInfo = new StringBuilder(64);
 
@@ -125,15 +175,53 @@ if (err == 0)
     err = VN_SaveXYZI8CloudAsLumBmp(pCloudXYZI8, ActualMatrixRows, ActualMatrixColumns, "./PointCloud_2.bmp");
     Console.WriteLine(err);
 
-    err = VN_SaveXYZI8CloudAsPcdFile(pCloudXYZI8, ActualMatrixRows, ActualMatrixColumns, "./PointCloud_2.bin");
+    err = VN_SaveXYZI8CloudAsPcdFile(pCloudXYZI8, ActualMatrixRows, ActualMatrixColumns, "./PointCloud_2.pcd");
     Console.WriteLine(err);
 
+    err = VN_SaveXYZI8CloudAsDepthMapBmp(pCloudXYZI8, ActualMatrixRows, ActualMatrixColumns, "./PointCloud_DepthMap.bmp");
+    Console.WriteLine(err);
 }
 else
 {
     Console.WriteLine("Error occurred with code: " + err);
 }
 
+ushort[] pDepthMap = new ushort[MaxCloudSize];
+ushort pInvalidVal;
+float pXOffset;
+float pXScale;
+float pYOffset;
+float pYScale;
+float pZOffset;
+float pZScale;
+float samplingFactor;
+
+err = VN_ExecuteSCAN_DepthMap(CirrusIP, MaxCloudSize, pDepthMap, ref ActualMatrixColumns, ref ActualMatrixRows,
+                            ref pInvalidVal,
+                            ref pXOffset, ref pXScale,
+                            ref pYOffset, ref pYScale,
+                            ref pZOffset, ref pZScale,
+                            samplingFactor);
+if (err == 0)
+{
+    err = VN_SaveDepthMapAsLumBmp(pDepthMap, ActualMatrixColumns, ActualMatrixRows, "./PointCloud_DepthMap_Lum.bmp");
+    Console.WriteLine(err);
+
+    err = VN_SaveDepthMapAsDepthMapPCD(pDepthMap, ActualMatrixColumns, ActualMatrixRows,
+                                       pInvalidVal,
+                                       pXOffset, pXScale,
+                                       pYOffset, pYScale,
+                                       pZOffset, pZScale,
+                                       "./PointCloud_DepthMap.pcd");
+    Console.WriteLine(err);
+
+    err = VN_SaveDepthMapAsDepthMapBmp(pDepthMap, ActualMatrixColumns, ActualMatrixRows, "./PointCloud_DepthMap.bmp");
+    Console.WriteLine(err);
+}
+else
+{
+    Console.WriteLine("Error occurred with code: " + err);
+}
 
 
 err = VN_Cirrus3DHandler_Initialize(CirrusIP,
