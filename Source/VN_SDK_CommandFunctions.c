@@ -25,6 +25,9 @@
  *   error handling......................................................... P.H
  * 24/07/2024 NEW VN_ExecuteSCAN_DepthMap function.......................... P.H
  * 28/11/2024 CHANGED: use CirrusCom_Receive function instead of recv....... P.H
+ * 16/06/2025 FIXED: In VN_Cirrus3DHandler_GetData and
+ *   VN_Cirrus3DHandler_SetDataValue functions, properly close the socket in
+ *   case of an error....................................................... P.H
  *-------------------------------------------------------------------------------
  */
 
@@ -2584,10 +2587,16 @@ VN_tERR_Code VN_Cirrus3DHandler_GetData(const VN_Cirrus3DHandler *pCirrus3DHandl
         return err;
     }
 
-    if(pCirrus3DHandler->ProtocolVersion!=protocolVersion) return VN_eERR_Failure;
-    if(pCirrus3DHandler->HeaderVersion!=headerVersion) return VN_eERR_Failure;
-    if(pCirrus3DHandler->DeviceVersion!=deviceVersion) return VN_eERR_Failure;
-    if(ackstatus!=VN_eERR_NoError) return ackstatus;
+    if(pCirrus3DHandler->ProtocolVersion!=protocolVersion) err=VN_eERR_Failure;
+    if(pCirrus3DHandler->HeaderVersion!=headerVersion) err=VN_eERR_Failure;
+    if(pCirrus3DHandler->DeviceVersion!=deviceVersion) err=VN_eERR_Failure;
+    if(ackstatus!=VN_eERR_NoError) err=ackstatus;
+
+    if(err!=VN_eERR_NoError)
+    {
+        CirrusCom_End_connection(sock);
+        return err;
+    }
 
     int size= 0;
 
@@ -2696,11 +2705,17 @@ VN_tERR_Code VN_Cirrus3DHandler_GetDataValue(const VN_Cirrus3DHandler *pCirrus3D
         return err;
     }
 
-    if(pCirrus3DHandler->ProtocolVersion!=protocolVersion) return VN_eERR_Failure;
-    if(pCirrus3DHandler->HeaderVersion!=headerVersion) return VN_eERR_Failure;
-    if(pCirrus3DHandler->DeviceVersion!=deviceVersion) return VN_eERR_Failure;
-    if(ackstatus!=VN_eERR_NoError) return ackstatus;
-    if(sizeData!=sizeof(VN_INT32)) return VN_eERR_Failure;
+    if(pCirrus3DHandler->ProtocolVersion!=protocolVersion) err=VN_eERR_Failure;
+    if(pCirrus3DHandler->HeaderVersion!=headerVersion) err=VN_eERR_Failure;
+    if(pCirrus3DHandler->DeviceVersion!=deviceVersion) err=VN_eERR_Failure;
+    if(ackstatus!=VN_eERR_NoError) err=ackstatus;
+    if(sizeData!=sizeof(VN_INT32)) err=VN_eERR_Failure;
+    if(err!=VN_eERR_NoError)
+    {
+        //end the communication properly even if the commands fails
+        CirrusCom_End_connection(sock);
+        return err;
+    }
 
     size=sizeData;
     char* value;
@@ -2809,6 +2824,7 @@ VN_tERR_Code VN_Cirrus3DHandler_SetDataValue(const VN_Cirrus3DHandler *pCirrus3D
         sizeValue=sizeof(((VN_tDataString*)pData)->value);
         break;
     default:
+        CirrusCom_End_connection(sock);
         return VN_eERR_Failure;
         break;
     }
