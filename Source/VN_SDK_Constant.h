@@ -29,6 +29,7 @@ typedef int VN_SOCKET;
 #elif  WIN64
 #include "winsock.h"
 #define closeVNSocket(s) closesocket(s)
+#define EXPORT __declspec(dllexport)
 #else
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -39,12 +40,12 @@ typedef struct sockaddr_in SOCKADDR_IN;
 typedef struct sockaddr SOCKADDR;
 typedef struct in_addr IN_ADDR;
 #define closeVNSocket(s) close(s)
+#define EXPORT __attribute__((visibility("default")))
 #endif
 
 #define INVALID_VN_SOCKET -1
 #define VN_SOCKET_ERROR -1
 #define cPortConfiguration 20002
-#define EXPORT __declspec(dllexport)
 
 /********************************** GENERAL GLOBALS **********************************/
 /** @ingroup GeneralConst
