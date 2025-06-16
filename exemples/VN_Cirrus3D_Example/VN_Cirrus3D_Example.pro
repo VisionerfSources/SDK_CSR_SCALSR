@@ -5,7 +5,7 @@ CONFIG -= qt
 
 win32 {
 LIBS +=  -lws2_32
-LIBS += -L../../lib/Win/ -lVnCirrus3DLib
+LIBS += -L../../lib/Win/Win32/lib -lVnCirrus3DLib
 }
 
 unix {
