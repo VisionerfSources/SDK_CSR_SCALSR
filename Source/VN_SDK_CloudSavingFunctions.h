@@ -15,6 +15,9 @@
  *                    VN_SaveXYZRGBCloudAsDepthMapBmp
  *                    VN_SaveXYZRGBCloudAsLumBmp............................ P.H
  *  26/03/2025 ADDED: Export the functions available when using the library. P.H
+ *  11/04/2025: NEW: new functions VN_SaveDepthMapAsLumBmp
+ *                                 VN_SaveDepthMapAsDepthMapPCD
+ *                                 VN_SaveDepthMapAsDepthMapBmp............. P.H
  *------------------------------------------------------------------------------
  */
 
@@ -140,4 +143,59 @@ EXPORT VN_tERR_Code VN_SaveXYZRGBCloudAsPcdFile(VN_Point_XYZRGB *pCloud_XYZRGB,
                                                 int rowsNumber,
                                                 int columnsNumber,
                                                 const char *pFileName);
+
+/**
+ * \brief This function can be used to save a matrix_XYZI8 cloud of points as an artifical image (using lum data only...)
+ *
+ * \param[in] pDepthMap        : pointer to a buffer
+ * \param[in] rowCount         : number of rows in the matrix
+ * \param[in] columnCount      : number of columns in the matrix
+ * \param[in] pFileName        : path of the .bmp result file
+ * \retval VN_eERR_NoError if success
+ * \retval error code otherwise
+ */
+EXPORT VN_tERR_Code VN_SaveDepthMapAsLumBmp(VN_UINT16* pDepthMap,
+                                            VN_UINT32 columnCount,
+                                            VN_UINT32 rowCount,
+                                            char* pFileName);
+/**
+ * \brief This function can be used to save a DepthMap cloud of points as an artifical image (using lum data only...)
+ *
+ * \param[in] pDepthMap        : pointer to a buffer
+ * \param[in] rowCount         : number of rows in the matrix
+ * \param[in] columnCount      : number of columns in the matrix
+ * \param[in] pFileName        : path of the .bmp result file
+ * \retval VN_eERR_NoError if success
+ * \retval error code otherwise
+ */
+EXPORT VN_tERR_Code VN_SaveDepthMapAsDepthMapBmp(VN_UINT16* pDepthMap,
+                                                 VN_UINT32 columnCount,
+                                                 VN_UINT32 rowCount,
+                                                 char* pFileName);
+
+/**
+ * \brief This function can be used to save a DepthMap cloud of points in pcd file
+ *
+ * \param[in] pDepthMap        : pointer to a buffer
+ * \param[in] rowCount         : number of rows in the matrix
+ * \param[in] columnCount      : number of columns in the matrix
+ * \param[in] pFileName        : path of the .bmp result file
+ * \param[out] invalidVal      : invalid value
+ * \param[out] xOffset         : XOffset
+ * \param[out] xScale          : XScale
+ * \param[out] yOffset         : YOffset
+ * \param[out] yScale          : YScale
+ * \param[out] zOffset         : ZOffset
+ * \param[out] zScale          : ZScale
+ * \retval VN_eERR_NoError if success
+ * \retval error code otherwise
+ */
+EXPORT VN_tERR_Code VN_SaveDepthMapAsDepthMapPCD(VN_UINT16* pDepthMap,
+                                                 VN_UINT32 columnsNumber,
+                                                 VN_UINT32 rowsNumber,
+                                                 VN_UINT16 invalidVal,
+                                                 float xOffset, float xScale,
+                                                 float yOffset, float yScale,
+                                                 float zOffset, float zScale,
+                                                 char* pFileName);
 #endif // VN_SDK_COMMANDFUNCTIONS_H

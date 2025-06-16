@@ -26,6 +26,9 @@
  *                      VN_SaveAsDepthMapBmp->VN_SaveXYZI8CloudAsDepthMapBmp P.H
  * 24/07/2024 NEW VN_ExecuteSCAN_DepthMap function.......................... P.H
  * 15/10/2024 FIXED: alignment modification of _VN_Point_XYZI8 structure.... P.H
+ *  11/04/2025: NEW: new functions VN_SaveDepthMapAsLumBmp
+ *                                 VN_SaveDepthMapAsDepthMapPCD
+ *                                 VN_SaveDepthMapAsDepthMapBmp............. P.H
  *------------------------------------------------------------------------------
  */
 
@@ -657,7 +660,7 @@ VN_tERR_Code VN_GetCirrus3DAvailable(VN_INT32 *pNbCirrus3DAvailable, char ipCirr
 
 /************************** CLOUD SAVING FUNCTIONS ****************************/
 
-/**
+/** @ingroup CloudOfPoint
  * \brief This function can be used to save a cloud of points (XYZ format) as a .bin file
  *
  * \param[in] pCloud_XYZ    : pointer to a buffer storing the XYZ cloud
@@ -668,7 +671,7 @@ VN_tERR_Code VN_GetCirrus3DAvailable(VN_INT32 *pNbCirrus3DAvailable, char ipCirr
  */
 VN_tERR_Code VN_SaveXYZCloudAsBinFile(float *pCloud_XYZ, int cloudSize, const char *pFileName);
 
-/**
+/** @ingroup CloudOfPoint
  * \brief This function can be used to save a cloud of points (XYZ format) as a .bin file
  *
  * \param[in] pCloud_XYZ    : pointer to a buffer storing the XYZ cloud
@@ -679,7 +682,7 @@ VN_tERR_Code VN_SaveXYZCloudAsBinFile(float *pCloud_XYZ, int cloudSize, const ch
  */
 VN_tERR_Code VN_SaveXYZCloudAsTxtFile(float *pCloud_XYZ, int cloudSize, const char *pFileName);
 
-/**
+/** @ingroup CloudOfPoint
  * \brief This function can be used to save a cloud of points (XYZI16 format in this example) as a .pcd file
  *
  * \param[in] pCloud_XYZI6    : pointer to a buffer storing the XYZI16 cloud
@@ -694,7 +697,7 @@ VN_tERR_Code VN_SaveXYZI16CloudAsPcdFile(VN_Point_XYZI16 *pCloud_XYZI16,
                                          int columnsNumber,
                                          const char *pFileName);
 
-/**
+/** @ingroup CloudOfPoint
  * \brief This function can be used to save a matrix_XYZi cloud of points as a depth map bmp image
  *
  * \param[in] pCloud_XYZi   : pointer to a buffer storing the matrix
@@ -706,7 +709,7 @@ VN_tERR_Code VN_SaveXYZI16CloudAsPcdFile(VN_Point_XYZI16 *pCloud_XYZI16,
  */
 VN_tERR_Code VN_SaveXYZI8CloudAsDepthMapBmp(VN_Point_XYZI8 *pCloud_XYZI8, int rowCount, int columnCount, const char *pFileName);
 
-/**
+/** @ingroup CloudOfPoint
  * \brief This function can be used to save a matrix_XYZi cloud of points as a depth map bmp image
  *
  * \param[in] pCloud_XYZi   : pointer to a buffer storing the matrix
@@ -718,7 +721,7 @@ VN_tERR_Code VN_SaveXYZI8CloudAsDepthMapBmp(VN_Point_XYZI8 *pCloud_XYZI8, int ro
  */
 VN_tERR_Code VN_SaveXYZI8CloudAsDepthMapBmp(VN_Point_XYZI8 *pCloud_XYZI8, int rowCount, int columnCount, const char *pFileName);
 
-/**
+/** @ingroup CloudOfPoint
  * \brief This function can be used to save a matrix_XYZI8 cloud of points as an artifical image (using lum data only...)
  *
  * \param[in] pCloud_XYZI8   : pointer to a buffer storing the matrix
@@ -730,7 +733,7 @@ VN_tERR_Code VN_SaveXYZI8CloudAsDepthMapBmp(VN_Point_XYZI8 *pCloud_XYZI8, int ro
  */
 VN_tERR_Code VN_SaveXYZI8CloudAsLumBmp(VN_Point_XYZI8 *pCloud_XYZI8, int rowCount, int columnCount, const char *pFileName);
 
-/**
+/** @ingroup CloudOfPoint
  * \brief This function can be used to save a cloud of points (XYZI8 format) as a .pcd file,
  *  in this case a file with organized rows & columnds and the point data stored in binary format.
  *
@@ -745,7 +748,7 @@ VN_tERR_Code VN_SaveXYZI8CloudAsPcdFile(VN_Point_XYZI8 *pCloud_XYZI8,
                                         int columnsNumber,
                                         const char *pFileName);
 
-/**
+/** @ingroup CloudOfPoint
  * \brief This function can be used to save a matrix_XYZRGB cloud of points as a depth map bmp image
  *
  * \param[in] pCloud_XYZRGB   : pointer to a buffer storing the matrix
@@ -758,7 +761,7 @@ VN_tERR_Code VN_SaveXYZI8CloudAsPcdFile(VN_Point_XYZI8 *pCloud_XYZI8,
 VN_tERR_Code VN_SaveXYZRGBCloudAsDepthMapBmp(VN_Point_XYZRGB *pCloud_XYZRGB, int rowCount, int columnCount, const char *pFileName);
 
 
-/**
+/** @ingroup CloudOfPoint
  * \brief This function can be used to save a matrix_XYZRGB cloud of points as an artifical image (using lum data only...)
  *
  * \param[in] pCloud_XYZRGB   : pointer to a buffer storing the matrix
@@ -771,7 +774,7 @@ VN_tERR_Code VN_SaveXYZRGBCloudAsDepthMapBmp(VN_Point_XYZRGB *pCloud_XYZRGB, int
 VN_tERR_Code VN_SaveXYZRGBCloudAsLumBmp(VN_Point_XYZRGB *pCloud_XYZRGB, int rowCount, int columnCount, const char *pFileName);
 
 
-/**
+/** @ingroup CloudOfPoint
  * \brief This function can be used to save a cloud of points (XYZRGB format) as a .pcd file,
  *  in this case a file with organized rows & columnds and the point data stored in binary format.
  *
@@ -786,6 +789,63 @@ VN_tERR_Code VN_SaveXYZRGBCloudAsPcdFile(VN_Point_XYZRGB *pCloud_XYZRGB,
                                      int rowsNumber,
                                      int columnsNumber,
                                      const char *pFileName);
+
+/** @ingroup CloudOfPoint
+ * \brief This function can be used to save a DepthMap cloud of points as an image (using lum data only...)
+ *
+ * \param[in] pDepthMap        : pointer to a buffer
+ * \param[in] rowCount         : number of rows in the matrix
+ * \param[in] columnCount      : number of columns in the matrix
+ * \param[in] pFileName        : path of the .bmp result file
+ * \retval VN_eERR_NoError if success
+ * \retval error code otherwise
+ */
+VN_tERR_Code VN_SaveDepthMapAsLumBmp(VN_UINT16* pDepthMap,
+                                     VN_UINT32 columnCount,
+                                     VN_UINT32 rowCount,
+                                     char* pFileName);
+
+/** @ingroup CloudOfPoint
+ * \brief This function can be used to save a DepthMap cloud of points as an artifical image (using lum data only...)
+ *
+ * \param[in] pDepthMap        : pointer to a buffer
+ * \param[in] rowCount         : number of rows in the matrix
+ * \param[in] columnCount      : number of columns in the matrix
+ * \param[in] pFileName        : path of the .bmp result file
+ * \retval VN_eERR_NoError if success
+ * \retval error code otherwise
+ */
+VN_tERR_Code VN_SaveDepthMapAsDepthMapBmp(VN_UINT16* pDepthMap,
+                                          VN_UINT32 columnCount,
+                                          VN_UINT32 rowCount,
+                                          char* pFileName);
+
+/** @ingroup CloudOfPoint
+ * \brief This function can be used to save a DepthMap cloud of points in pcd file
+ *
+ * \param[in] pDepthMap        : pointer to a buffer
+ * \param[in] rowCount         : number of rows in the matrix
+ * \param[in] columnCount      : number of columns in the matrix
+ * \param[in] pFileName        : path of the .bmp result file
+ * \param[out] invalidVal      : invalid value
+ * \param[out] xOffset         : XOffset
+ * \param[out] xScale          : XScale
+ * \param[out] yOffset         : YOffset
+ * \param[out] yScale          : YScale
+ * \param[out] zOffset         : ZOffset
+ * \param[out] zScale          : ZScale
+ * \retval VN_eERR_NoError if success
+ * \retval error code otherwise
+ */
+VN_tERR_Code VN_SaveDepthMapAsDepthMapPCD(VN_UINT16* pDepthMap,
+                                          VN_UINT32 columnsNumber,
+                                          VN_UINT32 rowsNumber,
+                                          VN_UINT16 invalidVal,
+                                          float xOffset, float xScale,
+                                          float yOffset, float yScale,
+                                          float zOffset, float zScale,
+                                          char* pFileName);
+
 /************************ END CLOUD SAVING FUNCTIONS **************************/
 
 
