@@ -28,6 +28,8 @@
  * 16/06/2025 FIXED: In VN_Cirrus3DHandler_GetData and
  *   VN_Cirrus3DHandler_SetDataValue functions, properly close the socket in
  *   case of an error....................................................... P.H
+ * 16/06/2025 FIXED: possible overflow of table in
+ *   VN_ExecuteSCAN_CameraCOP_XYZI8_sampling function....................... P.H
  *-------------------------------------------------------------------------------
  */
 
@@ -1383,7 +1385,7 @@ VN_tERR_Code VN_ExecuteSCAN_CameraCOP_XYZI8_sampling(const char *pIpAddress,
 {
     VN_SOCKET sock;
     VN_tERR_Code err=VN_eERR_NoError;
-    char ScanCommand[16];
+    char ScanCommand[18];
     int status, cloudBytesSize, cloudPoints, rowCount, columnCount;
 
     //Open a VN_SOCKET
